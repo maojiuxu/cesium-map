@@ -13,6 +13,7 @@
 import * as Cesium from 'cesium'
 import { useMapStore } from '@/stores/modules/mapStore'
 import circleScan from '@/assets/img/circle-scan.png'
+import circleTwo from '@/assets/img/circle-two.png'
 
 export function diffusionConfig() {
 
@@ -274,11 +275,11 @@ export function diffusionConfig() {
           semiMajorAxis: options.maxRadius,
         })
       }),
-      appearance: new Cesium.MaterialAppearance({
+      appearance: new Cesium.EllipsoidSurfaceAppearance({
         material: new Cesium.Material({
           fabric: {
             uniforms: {
-              u_color: Cesium.Color.fromCssColorString(options.color).withAlpha(0.9), // 固定为红色，提高透明度
+              u_color: Cesium.Color.fromCssColorString(options.color).withAlpha(1), // 固定为红色，提高透明度
               u_image: circleScan,
               u_speed: options.speed, // 降低速度，让拖尾更明显
             },
@@ -307,17 +308,94 @@ export function diffusionConfig() {
 
     // 添加primitive到场景
     map.scene.primitives.add(primitive);
-
     // 将primitive缓存到graphicMap中
     mapStore.setGraphicMap(options.id, primitive);
     return primitive;
   }
 
+  /**
+   * 创建扫描圈涟漪效果（img 扫描圈）
+   * 
+   * @param {string} options.id 波纹唯一标识
+   * @param {number[]} options.center 波纹中心经纬度坐标 [longitude, latitude]
+   * @param {number} options.maxRadius 波纹最大扩散半径（米）
+   * @param {string} options.color 波纹颜色（CSS颜色字符串）
+   * @param {number} [options.speed=1.0] 倍速（原始速率的倍数）
+   *   - u_speed = 1.0 → 1倍速（跟随原始千帧速率）
+   *   - u_speed = 2.0 → 2倍速（千帧速率的2倍）
+   *   - u_speed = 0.5 → 0.5倍速（千帧速率的一半）
+   * @returns {Cesium.Entity|null} 创建的波纹实体，若创建失败则返回null 
+   */
+  const circleScanImage = (options: {
+    id: string,
+    center: any[];
+    maxRadius: number,
+    color: string,
+    speed?: number,
+  }) => {
+    const map = mapStore.getMap()
+    if (!map) {
+      console.error('地图实例不存在')
+      return null
+    }
+
+    // 检查是否已存在相同ID的扫描效果
+    if (mapStore.getGraphicMap(options.id)) {
+      console.log(`id: ${options.id} 扫描效果已存在`)
+      return null
+    }
+   
+    const primitive = new Cesium.Primitive({
+      geometryInstances: new Cesium.GeometryInstance({
+        geometry: new Cesium.EllipseGeometry({
+          center: Cesium.Cartesian3.fromDegrees(options.center[0], options.center[1], 0),
+          semiMinorAxis: options.maxRadius,
+          semiMajorAxis: options.maxRadius,
+        })
+      }),
+      appearance: new Cesium.EllipsoidSurfaceAppearance({
+          material: new Cesium.Material({
+            fabric: {
+              uniforms: {
+                u_color: Cesium.Color.fromCssColorString(options.color).withAlpha(1),
+                u_image: circleTwo,
+                u_speed: options.speed || 1.0,// 速度
+              },
+              source: `
+                czm_material czm_getMaterial(czm_materialInput materialInput)
+                {
+                    czm_material material = czm_getDefaultMaterial(materialInput);
+                    vec2 st = materialInput.st;
+
+                    float angle = radians(mod(czm_frameNumber * u_speed, 360.0)); // 根据速度计算旋转角度
+                    mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
+                    st = (rot * (st - 0.5)) + 0.5; // 应用旋转变换
+
+                    vec4 img = texture(u_image, st);
+                    material.diffuse = u_color.rgb;
+                    material.alpha = img.a;
+                    return material;
+                }
+              `
+            },
+            translucent: false
+          }),
+        }),
+      asynchronous: false
+    });
+
+    // 添加primitive到场景
+    map.scene.primitives.add(primitive);
+    // 将primitive缓存到graphicMap中
+    mapStore.setGraphicMap(options.id, primitive);
+    return primitive;
+  }
   // 导出扩散波纹操作方法
   return {
     singleDiffusion,
     multiDiffusion,
     removeDiffusion,
+    circleScanImage,
     scanning
   }
 }

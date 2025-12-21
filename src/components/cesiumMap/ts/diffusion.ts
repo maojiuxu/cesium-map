@@ -405,6 +405,11 @@ export function diffusionConfig() {
    *   - u_speed = 2.0 → 2倍速（千帧速率的2倍）
    *   - u_speed = 0.5 → 0.5倍速（千帧速率的一半）
    * @param {number[]} [options.polygonPoints] 多边形顶点坐标数组，格式为 [longitude1, latitude1, longitude2, latitude2, ...]
+   * @param {number} [options.type=0] 波纹类型
+   *   - 0:光环扩散
+   *   - 1:扫描线
+   *   - 2:涟漪
+   *   - 3:粒子
    * @returns {Cesium.Entity|null} 创建的波纹实体，若创建失败则返回null 
    */
   const polygonDiffusion = (options: {
@@ -413,6 +418,7 @@ export function diffusionConfig() {
     color: string,
     speed?: number,
     polygonPoints?: number[];
+    type?: number;
   }) => {
     const map = mapStore.getMap()
     if (!map) {
@@ -447,7 +453,7 @@ export function diffusionConfig() {
               u_color: Cesium.Color.fromCssColorString(options.color || '#00ffff').withAlpha(1.0),
               u_time: 0.0, // 时间参数，用于动画效果
               u_speed: options.speed || 1.0, // 倍速参数，影响动画速度
-              u_effectType: 0, // 0:光环扩散, 1:扫描线, 2:涟漪, 3:粒子
+              u_effectType: options.type || 0, // 0:光环扩散, 1:扫描线, 2:涟漪, 3:粒子
               u_intensity: 2.0, // 增加强度使效果更明显
               u_noiseScale: 5.0, // 噪声缩放参数，影响波纹的细节程度
               u_edgeGlow: 0.5, // 增加边缘发光强度

@@ -137,7 +137,7 @@ export function diffusionConfig() {
 
     // 检查是否已存在相同ID的波纹
     if (mapStore.getGraphicMap(`${options.id}`)) {
-      console.log(`id: ${options.id} 扩散波纹已存在`)
+      console.log(`id: ${options.id} 效果已存在`)
       return null
     }
 
@@ -263,7 +263,7 @@ export function diffusionConfig() {
 
     // 检查是否已存在相同ID的扫描效果
     if (mapStore.getGraphicMap(options.id)) {
-      console.log(`id: ${options.id} 扫描效果已存在`)
+      console.log(`id: ${options.id} 效果已存在`)
       return null
     }
 
@@ -341,7 +341,7 @@ export function diffusionConfig() {
 
     // 检查是否已存在相同ID的扫描效果
     if (mapStore.getGraphicMap(options.id)) {
-      console.log(`id: ${options.id} 扫描效果已存在`)
+      console.log(`id: ${options.id} 效果已存在`)
       return null
     }
    
@@ -428,7 +428,7 @@ export function diffusionConfig() {
 
     // 检查是否已存在相同ID的扫描效果
     if (mapStore.getGraphicMap(options.id)) {
-      console.log(`id: ${options.id} 扫描效果已存在`)
+      console.log(`id: ${options.id} 效果已存在`)
       return null
     }
 
@@ -535,6 +535,223 @@ export function diffusionConfig() {
     }
   }
 
+  /**
+   * 创建圆形墙效果
+   * @param options - 配置选项
+   * @param options.id - 效果的唯一标识符
+   * @param options.center - 中心坐标 [经度, 纬度]
+   * @param options.maxRadius - 最大半径（米）
+   * @param options.maxHeight - 最大高度（米）
+   * @param options.color - 颜色字符串（例如 '#00ffff'）
+   * @param options.speed - 倍速参数，影响动画速度（可选，默认1.0）
+   * @returns 成功时返回Primitive实例，失败时返回null
+   */
+  const circleDiffusion= (options: {
+    id: string,
+    center: any[];
+    maxRadius: number;
+    maxHeight: number;
+    color: string;
+    speed?: number;
+  }) => {
+    console.log('circleDiffusion函数被调用，参数：', options);
+    
+    const map = mapStore.getMap()
+    if (!map) {
+      console.error('地图实例不存在')
+      return null
+    }
+    console.log('地图实例获取成功');
+
+    // 检查是否已存在相同ID的扫描效果
+    if (mapStore.getGraphicMap(options.id)) {
+      console.log(`id: ${options.id} 效果已存在`)
+      return null
+    }
+    console.log('ID检查通过，不存在重复效果');
+
+    // 生成圆形墙体的顶点数据
+    const centerCartesian = Cesium.Cartesian3.fromDegrees(options.center[0], options.center[1], 0);
+    console.log('中心点坐标：', centerCartesian);
+    
+    const radius = options.maxRadius;
+    const height = options.maxHeight;
+    const segments = 64; // 圆形的分段数
+    console.log('参数：radius=' + radius + ', height=' + height + ', segments=' + segments);
+    
+    // 计算圆形顶点
+    const positions = [];
+    const normals = [];
+    const sts = [];
+    const indices = [];
+    
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      const x = centerCartesian.x + radius * Math.cos(angle);
+      const y = centerCartesian.y + radius * Math.sin(angle);
+      
+      // 底部顶点
+      positions.push(x, y, 0);
+      // 顶部顶点
+      positions.push(x, y, height);
+      
+      // 计算法向量（指向圆外）
+      const nx = Math.cos(angle);
+      const ny = Math.sin(angle);
+      const nz = 0;
+      
+      // 底部和顶部顶点使用相同的法向量
+      normals.push(nx, ny, nz);
+      normals.push(nx, ny, nz);
+      
+      // 纹理坐标
+      const t = i / segments;
+      sts.push(t, 0); // 底部顶点
+      sts.push(t, 1); // 顶部顶点
+      
+      // 三角形索引（除了最后一个分段）
+      if (i < segments) {
+        const bottomLeft = i * 2;
+        const topLeft = bottomLeft + 1;
+        const bottomRight = (i + 1) * 2;
+        const topRight = bottomRight + 1;
+        
+        // 第一个三角形
+        indices.push(bottomLeft, topLeft, bottomRight);
+        // 第二个三角形
+        indices.push(topLeft, topRight, bottomRight);
+      }
+    }
+
+    console.log('顶点数据生成完成，positions长度：', positions.length, 'indices长度：', indices.length);
+    
+    const primitive = new Cesium.Primitive({
+      geometryInstances: new Cesium.GeometryInstance({
+          geometry: new Cesium.Geometry({
+            attributes: {
+              position: new Cesium.GeometryAttribute({
+                componentDatatype: Cesium.ComponentDatatype.DOUBLE,
+                componentsPerAttribute: 3,
+                values: new Float64Array(positions)
+              }),
+              normal: new Cesium.GeometryAttribute({
+                componentDatatype: Cesium.ComponentDatatype.FLOAT,
+                componentsPerAttribute: 3,
+                values: new Float32Array(normals)
+              }),
+              st: new Cesium.GeometryAttribute({
+                componentDatatype: Cesium.ComponentDatatype.FLOAT,
+                componentsPerAttribute: 2,
+                values: new Float32Array(sts)
+              })
+            } as any, // 使用类型断言绕过GeometryAttributes类型检查
+            indices: new Uint16Array(indices),
+            primitiveType: Cesium.PrimitiveType.TRIANGLES,
+            boundingSphere: Cesium.BoundingSphere.fromVertices(positions)
+          })
+        }),
+        appearance: new Cesium.MaterialAppearance({
+          material: new Cesium.Material({
+            fabric: {
+              uniforms: {
+                u_color: Cesium.Color.fromCssColorString(options.color).withAlpha(1),
+                u_time: 0,
+                u_speed: options.speed || 1.0,
+                u_effectType: 2
+              },
+              source: `
+                uniform vec4 u_color;
+                uniform float u_time;
+                uniform float u_speed;
+                uniform float u_effectType;
+
+                vec4 getMaterial(vec2 st) {
+                  float t = u_time * u_speed;
+                  vec4 color = u_color;
+                  
+                  if (u_effectType < 0.5) {
+                    // 垂直流动光环 (effectType = 0)
+                    float wave = abs(sin(st.y * 5.0 - t * 2.0) * 0.5 + 0.5);
+                    color.rgb = u_color.rgb * wave;
+                    color.a = 1.0; // 确保不透明
+                  } else if (u_effectType < 1.5) {
+                    // 扫描线 (effectType = 1)
+                    float scanLine = step(0.95, sin(st.y * 50.0 - t * 5.0) * 0.5 + 0.5);
+                    color.rgb = mix(u_color.rgb, vec3(1.0), scanLine * 0.5);
+                    color.a = 1.0; // 确保不透明
+                  } else if (u_effectType < 2.5) {
+                    // 波浪效果 (effectType = 2)
+                    float wave = sin(st.y * 20.0 + t * 3.0) * 0.1;
+                    color.a = smoothstep(0.1, 0.9, st.y + wave);
+                  } else {
+                    // 粒子流动 (effectType = 3)
+                    float particle = mod(st.y * 10.0 - t * 5.0, 1.0);
+                    color.rgb = u_color.rgb * (1.0 - smoothstep(0.1, 0.3, particle) * smoothstep(0.3, 0.5, particle));
+                    color.a = 1.0; // 确保不透明
+                  }
+                  
+                  return color;
+                }
+              `
+            },
+            translucent: true,
+          }),
+          vertexShaderSource: `
+            #version 300 es
+            precision highp float;
+
+            in vec3 position3DHigh;
+            in vec3 position3DLow;
+            in vec3 normal;
+            in vec2 st;
+            in float batchId;
+            out vec3 v_positionEC;
+            out  vec2 v_st;
+            out  vec3 v_normalEC;
+            void main()
+            {
+                vec4 p = czm_translateRelativeToEye(position3DHigh,position3DLow);
+                v_positionEC = (czm_modelViewRelativeToEye * p).xyz;
+                v_normalEC = czm_normal * normal;
+                v_st=st;
+                gl_Position = czm_modelViewProjectionRelativeToEye * p;
+            }
+          `,
+          fragmentShaderSource: `
+            #version 300 es
+            precision highp float;
+            out vec4 fragColor;
+
+            in vec3 v_positionEC;
+            in vec3 v_normalEC;
+            in vec2 v_st;
+            void main(){
+                fragColor  = getMaterial(v_st);
+            }
+          `
+        }),
+        asynchronous: false
+      })
+      
+    console.log('Primitive创建完成：', primitive);
+    
+    try {
+      // 添加primitive到场景
+      map.scene.primitives.add(primitive);
+      // 将primitive缓存到graphicMap中
+      mapStore.setGraphicMap(options.id, primitive);
+      
+      return primitive;
+    } catch (error) {
+      console.error('创建圆形墙效果失败:', error);
+      // 清理资源
+      if (primitive) {
+        map.scene.primitives.remove(primitive);
+      }
+      return null;
+    }
+  }
+
   // 导出扩散波纹操作方法
   return {
     singleDiffusion,
@@ -542,6 +759,7 @@ export function diffusionConfig() {
     removeDiffusion,
     circleScanImage,
     polygonDiffusion,
+    circleDiffusion,
     scanning
   }
 }

@@ -85,7 +85,8 @@
           <button @click="toCreateMultiDiffusion" class="control-btn">创建多圈涟漪</button>
           <button @click="toCreateScanning" class="control-btn">创建扫描圈</button>
           <button @click="toCreateScanning1" class="control-btn">创建扫描圈img</button>
-          <button @click="toCreatePolygonDiffusion" class="control-btn">创建多边形扩散</button>
+          <button @click="toCreatePolygonDiffusion" class="control-btn">创建多边形墙</button>
+          <button @click="toCreateCircleDiffusion" class="control-btn">创建圆形墙</button>
           <button @click="toRemoveSingleDiffusion" class="control-btn">移除涟漪效果</button>
         </div>
       </div>
@@ -390,6 +391,17 @@ const toCreatePolygonDiffusion = () => {
   })
 }
 
+const toCreateCircleDiffusion = () => {
+  circleDiffusion({
+    id: 'circle_diffusion_001',
+    center: [106.5704352, 29.2731078], // 使用地图配置文件中的中心点坐标
+    maxRadius: 1500, // 最大扩散半径（米）
+    maxHeight: 800, // 最大扩散高度（米）
+    color: '#E81224', // 涟漪颜色
+    speed: 5, // 倍速（原始速率的倍数）
+  })
+}
+
 // 移除单圈涟漪效果
 const toRemoveSingleDiffusion = () => {
   // 移除指定ID的涟漪效果
@@ -425,6 +437,7 @@ const {
   removeDiffusion,
   circleScanImage,
   polygonDiffusion,
+  circleDiffusion,
   scanning
 } = diffusionConfig()
 </script>

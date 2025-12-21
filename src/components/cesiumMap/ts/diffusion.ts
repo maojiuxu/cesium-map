@@ -398,7 +398,7 @@ export function diffusionConfig() {
    * 波纹会逐渐扩大并淡出，支持循环播放
    * 
    * @param {string} options.id 波纹唯一标识
-   * @param {number} options.maxRadius 波纹最大扩散半径（米）
+   * @param {number} options.maxHeight 波纹最大扩散高度（米）
    * @param {string} options.color 波纹颜色（CSS颜色字符串）
    * @param {number} [options.speed=1.0] 倍速（原始速率的倍数）
    *   - u_speed = 1.0 → 1倍速（跟随原始千帧速率）
@@ -409,7 +409,7 @@ export function diffusionConfig() {
    */
   const polygonDiffusion = (options: {
     id: string,
-    maxRadius: number,
+    maxHeight: number,
     color: string,
     speed?: number,
     polygonPoints?: number[];
@@ -431,91 +431,82 @@ export function diffusionConfig() {
       return null;
     }
 
-    // 创建墙体几何数据
-    const wallGeometry = Cesium.WallGeometry.fromConstantHeights({
-      positions: Cesium.Cartesian3.fromDegreesArray(options.polygonPoints),
-      maximumHeight: options.maxRadius || 1000.0,
-      minimumHeight: 0
-    });
-
-    // 创建几何实例
-    const geometryInstance = new Cesium.GeometryInstance({
-      geometry: wallGeometry
-    });
-
-    // 创建自定义材质
-    const material = new Cesium.Material({
-      fabric: {
-        uniforms: {
-          u_color: Cesium.Color.fromCssColorString(options.color || '#00ffff').withAlpha(1.0),
-          u_time: 0.0,
-          u_speed: options.speed || 1.0,
-          u_effectType: 0.0, // 0:光环扩散, 1:扫描线, 2:涟漪, 3:粒子
-          u_intensity: 2.0, // 增加强度使效果更明显
-          u_noiseScale: 5.0,
-          u_edgeGlow: 0.5, // 增加边缘发光强度
-          u_amplitude: 1.0 // 振幅参数
-        },
-        source: `
-          czm_material czm_getMaterial(czm_materialInput materialInput) {
-            czm_material material = czm_getDefaultMaterial(materialInput);
-            
-            vec2 st = materialInput.st;
-            float per = fract(u_speed * czm_frameNumber / 1000.0);
-            
-            vec4 color = u_color;
-            
-            if (u_effectType < 0.5) {
-              // 效果1：垂直流动的光环
-              float glow = 0.0;
-              for(int i = 0; i < 5; i++) {
-                float phase = float(i) * 0.2;
-                float currentPos = fract(per + phase);
-                float distanceToGlow = abs(st.y - currentPos);
-                glow += exp(-distanceToGlow * 50.0) * (sin(currentPos * 10.0 + u_speed * czm_frameNumber / 50.0) * 0.5 + 0.5);
-              }
-              material.diffuse = color.rgb * 2.0;
-              material.emission = color.rgb * glow * u_intensity;
-              material.alpha = color.a * glow * u_intensity;
-            } else if (u_effectType < 1.5) {
-              // 效果2：扫描线效果
-              float scanLine = 1.0 - smoothstep(0.0, 0.1, abs(st.y - per));
-              material.diffuse = color.rgb * scanLine;
-              material.emission = color.rgb * scanLine * 2.0;
-              material.alpha = color.a * scanLine;
-            } else if (u_effectType < 2.5) {
-              // 效果3：波浪效果
-              float wave = sin(st.x * 20.0 + u_speed * czm_frameNumber / 50.0) * 0.5 + 0.5;
-              wave *= sin(st.y * 5.0 + u_speed * czm_frameNumber / 100.0) * 0.5 + 0.5;
-              material.diffuse = color.rgb * wave;
-              material.emission = color.rgb * wave * 2.0;
-              material.alpha = color.a * wave;
-            } else {
-              // 效果4：粒子流动效果
-              float particles = 0.0;
-              for(int i = 0; i < 30; i++) {
-                float phase = float(i) * 0.033;
-                float particlePos = fract(per + phase);
-                float distanceToParticle = abs(st.y - particlePos);
-                particles += exp(-distanceToParticle * 100.0) * (sin(float(i) + u_speed * czm_frameNumber / 50.0) * 0.5 + 0.5);
-              }
-              material.diffuse = color.rgb;
-              material.emission = color.rgb * particles * u_intensity;
-              material.alpha = color.a * particles * u_intensity;
-            }
-            
-            return material;
-          }
-        `
-      },
-      translucent: true,
-    });
-
-    // 创建Primitive
     const primitive = new Cesium.Primitive({
-      geometryInstances: geometryInstance,
+      // 墙体几何实例
+      geometryInstances: new Cesium.GeometryInstance({
+        geometry: Cesium.WallGeometry.fromConstantHeights({
+          positions: Cesium.Cartesian3.fromDegreesArray(options.polygonPoints),
+          maximumHeight: options.maxHeight || 1000.0,
+          minimumHeight: 0
+        })
+      }), 
       appearance: new Cesium.MaterialAppearance({
-        material: material,
+        material: new Cesium.Material({
+          fabric: {
+            uniforms: {
+              u_color: Cesium.Color.fromCssColorString(options.color || '#00ffff').withAlpha(1.0),
+              u_time: 0.0, // 时间参数，用于动画效果
+              u_speed: options.speed || 1.0, // 倍速参数，影响动画速度
+              u_effectType: 0, // 0:光环扩散, 1:扫描线, 2:涟漪, 3:粒子
+              u_intensity: 2.0, // 增加强度使效果更明显
+              u_noiseScale: 5.0, // 噪声缩放参数，影响波纹的细节程度
+              u_edgeGlow: 0.5, // 增加边缘发光强度
+              u_amplitude: 2.0 // 振幅参数
+            },
+            source: `
+              czm_material czm_getMaterial(czm_materialInput materialInput) {
+                czm_material material = czm_getDefaultMaterial(materialInput);
+                
+                vec2 st = materialInput.st;
+                float per = fract(u_speed * czm_frameNumber / 1000.0);
+                
+                vec4 color = u_color;
+                
+                if (u_effectType < 0.5) {
+                  // 效果1：垂直流动的光环
+                  float glow = 0.0;
+                  for(int i = 0; i < 5; i++) {
+                    float phase = float(i) * 0.2;
+                    float currentPos = fract(per + phase);
+                    float distanceToGlow = abs(st.y - currentPos);
+                    glow += exp(-distanceToGlow * 50.0) * (sin(currentPos * 10.0 + u_speed * czm_frameNumber / 50.0) * 0.5 + 0.5);
+                  }
+                  material.diffuse = color.rgb * 2.0;
+                  material.emission = color.rgb * glow * u_intensity;
+                  material.alpha = color.a * glow * u_intensity;
+                } else if (u_effectType < 1.5) {
+                  // 效果2：扫描线效果
+                  float scanLine = 1.0 - smoothstep(0.0, 0.1, abs(st.y - per));
+                  material.diffuse = color.rgb * scanLine;
+                  material.emission = color.rgb * scanLine * 2.0;
+                  material.alpha = color.a * scanLine;
+                } else if (u_effectType < 2.5) {
+                  // 效果3：波浪效果
+                  float wave = sin(st.x * 20.0 + u_speed * czm_frameNumber / 50.0) * 0.5 + 0.5;
+                  wave *= sin(st.y * 5.0 + u_speed * czm_frameNumber / 100.0) * 0.5 + 0.5;
+                  material.diffuse = color.rgb * wave;
+                  material.emission = color.rgb * wave * 2.0;
+                  material.alpha = color.a * wave;
+                } else {
+                  // 效果4：粒子流动效果
+                  float particles = 0.0;
+                  for(int i = 0; i < 30; i++) {
+                    float phase = float(i) * 0.033;
+                    float particlePos = fract(per + phase);
+                    float distanceToParticle = abs(st.y - particlePos);
+                    particles += exp(-distanceToParticle * 100.0) * (sin(float(i) + u_speed * czm_frameNumber / 50.0) * 0.5 + 0.5);
+                  }
+                  material.diffuse = color.rgb;
+                  material.emission = color.rgb * particles * u_intensity;
+                  material.alpha = color.a * particles * u_intensity;
+                }
+                
+                return material;
+              }
+            `
+          },
+          translucent: true,
+        }), // 使用自定义材质
         closed: false
       }),
       asynchronous: false

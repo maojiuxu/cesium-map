@@ -431,82 +431,111 @@ export function diffusionConfig() {
       return null;
     }
 
-    // 创建多边形几何形状
-    const geometry = new Cesium.PolygonGeometry({
-      polygonHierarchy: new Cesium.PolygonHierarchy(
-        Cesium.Cartesian3.fromDegreesArray(options.polygonPoints)
-      ),
-      height: 0,
-      vertexFormat: Cesium.PerInstanceColorAppearance.VERTEX_FORMAT,
-      // 增加顶点密度，使边缘更锐利
-      granularity: Cesium.Math.RADIANS_PER_DEGREE * 0.1
+    // 创建墙体几何数据
+    const wallGeometry = Cesium.WallGeometry.fromConstantHeights({
+      positions: Cesium.Cartesian3.fromDegreesArray(options.polygonPoints),
+      maximumHeight: options.maxRadius || 1000.0,
+      minimumHeight: 0
     });
 
-    const primitive = new Cesium.GroundPrimitive({
-      geometryInstances: new Cesium.GeometryInstance({
-        geometry: geometry
-      }),
-      appearance: new Cesium.EllipsoidSurfaceAppearance({
-        material: new Cesium.Material({
-          fabric: {
-            uniforms: {
-              u_color: Cesium.Color.fromCssColorString(options.color).withAlpha(0.8),
-              u_speed: options.speed || 1.0
-            },
-            source: `
-              czm_material czm_getMaterial(czm_materialInput materialInput)
-              {
-                  czm_material material = czm_getDefaultMaterial(materialInput);
-                  
-                  // 获取当前时间因子
-                  float time = u_speed * czm_frameNumber / 1000.0;
-                  float progress = fract(time);
-                  
-                  // 创建多边形扩散效果
-                  vec2 st = materialInput.st;
-                  vec2 center = vec2(0.5, 0.5);
-                  
-                  // 计算到中心的距离
-                  float dis = distance(st, center);
-                  
-                  // 创建多边形纹理坐标
-                  float polyFactor = 0.0;
-                  for(int i = 0; i < 8; i++) {
-                    float a = float(i) * 3.1415926 * 2.0 / 8.0;
-                    vec2 dir = vec2(cos(a), sin(a));
-                    float dotProduct = dot(normalize(st - center), dir);
-                    polyFactor = max(polyFactor, dotProduct);
-                  }
-                  
-                  // 使用多边形因子调整扩散半径
-                  float adjustedRadius = progress * 0.5 * polyFactor;
-                  
-                  // 创建扩散边缘
-                  if(dis > adjustedRadius) discard;
-                  
-                  // 增强多边形边缘的锐利度
-                  float edgeWidth = 0.1;
-                  float edgeFactor = smoothstep(adjustedRadius - edgeWidth, adjustedRadius, dis);
-                  
-                  // 计算透明度
-                  material.alpha = u_color.a * (1.0 - edgeFactor);
-                  material.diffuse = u_color.rgb;
-                  
-                  return material;
+    // 创建几何实例
+    const geometryInstance = new Cesium.GeometryInstance({
+      geometry: wallGeometry
+    });
+
+    // 创建自定义材质
+    const material = new Cesium.Material({
+      fabric: {
+        uniforms: {
+          u_color: Cesium.Color.fromCssColorString(options.color || '#00ffff').withAlpha(1.0),
+          u_time: 0.0,
+          u_speed: options.speed || 1.0,
+          u_effectType: 0.0, // 0:光环扩散, 1:扫描线, 2:涟漪, 3:粒子
+          u_intensity: 2.0, // 增加强度使效果更明显
+          u_noiseScale: 5.0,
+          u_edgeGlow: 0.5, // 增加边缘发光强度
+          u_amplitude: 1.0 // 振幅参数
+        },
+        source: `
+          czm_material czm_getMaterial(czm_materialInput materialInput) {
+            czm_material material = czm_getDefaultMaterial(materialInput);
+            
+            vec2 st = materialInput.st;
+            float per = fract(u_speed * czm_frameNumber / 1000.0);
+            
+            vec4 color = u_color;
+            
+            if (u_effectType < 0.5) {
+              // 效果1：垂直流动的光环
+              float glow = 0.0;
+              for(int i = 0; i < 5; i++) {
+                float phase = float(i) * 0.2;
+                float currentPos = fract(per + phase);
+                float distanceToGlow = abs(st.y - currentPos);
+                glow += exp(-distanceToGlow * 50.0) * (sin(currentPos * 10.0 + u_speed * czm_frameNumber / 50.0) * 0.5 + 0.5);
               }
-            `
-          },
-          translucent: true
-        }),
+              material.diffuse = color.rgb * 2.0;
+              material.emission = color.rgb * glow * u_intensity;
+              material.alpha = color.a * glow * u_intensity;
+            } else if (u_effectType < 1.5) {
+              // 效果2：扫描线效果
+              float scanLine = 1.0 - smoothstep(0.0, 0.1, abs(st.y - per));
+              material.diffuse = color.rgb * scanLine;
+              material.emission = color.rgb * scanLine * 2.0;
+              material.alpha = color.a * scanLine;
+            } else if (u_effectType < 2.5) {
+              // 效果3：波浪效果
+              float wave = sin(st.x * 20.0 + u_speed * czm_frameNumber / 50.0) * 0.5 + 0.5;
+              wave *= sin(st.y * 5.0 + u_speed * czm_frameNumber / 100.0) * 0.5 + 0.5;
+              material.diffuse = color.rgb * wave;
+              material.emission = color.rgb * wave * 2.0;
+              material.alpha = color.a * wave;
+            } else {
+              // 效果4：粒子流动效果
+              float particles = 0.0;
+              for(int i = 0; i < 30; i++) {
+                float phase = float(i) * 0.033;
+                float particlePos = fract(per + phase);
+                float distanceToParticle = abs(st.y - particlePos);
+                particles += exp(-distanceToParticle * 100.0) * (sin(float(i) + u_speed * czm_frameNumber / 50.0) * 0.5 + 0.5);
+              }
+              material.diffuse = color.rgb;
+              material.emission = color.rgb * particles * u_intensity;
+              material.alpha = color.a * particles * u_intensity;
+            }
+            
+            return material;
+          }
+        `
+      },
+      translucent: true,
+    });
+
+    // 创建Primitive
+    const primitive = new Cesium.Primitive({
+      geometryInstances: geometryInstance,
+      appearance: new Cesium.MaterialAppearance({
+        material: material,
+        closed: false
       }),
       asynchronous: false
     });
 
-    // 添加primitive到场景
-    map.scene.primitives.add(primitive);
-    // 将primitive缓存到graphicMap中
-    mapStore.setGraphicMap(options.id, primitive);
-    return primitive;
+    try {
+      // 添加primitive到场景
+      map.scene.primitives.add(primitive);
+      // 将primitive缓存到graphicMap中
+      mapStore.setGraphicMap(options.id, primitive);
+      
+      return primitive;
+    } catch (error) {
+      console.error('创建多边形扩散效果失败:', error);
+      // 清理资源
+      if (primitive) {
+        map.scene.primitives.remove(primitive);
+      }
+      return null;
+    }
   }
 
   // 导出扩散波纹操作方法

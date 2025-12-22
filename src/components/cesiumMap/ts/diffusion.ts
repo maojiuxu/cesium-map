@@ -562,12 +562,9 @@ export function diffusionConfig() {
     color: string;
     opacity?: number;
     speed?: number;
-    effectType?: number;
     segments?: number;
     asynchronous?: boolean;
   }) => {
-    console.log('circleDiffusion函数被调用，参数：', options);
-    
     const map = mapStore.getMap()
     if (!map) {
       console.error('地图实例不存在')
@@ -580,25 +577,16 @@ export function diffusionConfig() {
       return mapStore.getGraphicMap(options.id)
     }
     
-    // 解析中心点坐标，支持可选的高度参数，默认贴地
-    const centerHeight = options.center.length > 2 ? options.center[2] : 0;
-    const centerCartesian = Cesium.Cartesian3.fromDegrees(options.center[0], options.center[1], centerHeight);
-    
     // 参数默认值
     const radius = options.maxRadius;
     const height = options.maxHeight;
     const segments = Math.max(8, Math.min(options.segments || 64, 256)); // 限制分段数在8-256之间
     const opacity = options.opacity !== undefined ? options.opacity : 1.0;
-    const speed = options.speed || 1.0;
-    const effectType = Math.max(0, Math.min(options.effectType || 2, 3)); // 限制效果类型在0-3之间
-    const asynchronous = options.asynchronous || false;
+    const asynchronous = options.asynchronous || false; // 是否异步创建，默认false
     
     // 确保墙体贴地显示
     const groundHeight = 0; // 地面高度
     const wallHeight = height; // 墙体高度
-    
-    console.log('参数配置：radius=' + radius + ', height=' + height + ', segments=' + segments + 
-                ', opacity=' + opacity + ', speed=' + speed + ', effectType=' + effectType);
     
     // 使用EllipsoidSurfacePrimitive创建圆形墙
     const circlePositions: Cesium.Cartesian3[] = [];
@@ -612,72 +600,36 @@ export function diffusionConfig() {
       circlePositions.push(Cesium.Cartesian3.fromDegrees(lon, lat, groundHeight));
     }
 
-    console.log('圆形位置数据生成完成，位置数量：', circlePositions.length);
-    
     try {
-      // 创建材质 - 使用简单的颜色材质
-      const material = new Cesium.Material({
-        fabric: {
-          type: 'Color',
-          uniforms: {
-            color: Cesium.Color.fromCssColorString(options.color).withAlpha(opacity)
-          }
-        },
-        translucent: true,
-      });
-      
-      // 创建几何实例 - 使用WallGeometry创建圆形墙（只显示侧面）
-      const geometryInstance = new Cesium.GeometryInstance({
-        geometry: new Cesium.WallGeometry({
-          positions: circlePositions,
-          maximumHeights: new Array(circlePositions.length).fill(groundHeight + wallHeight),
-          minimumHeights: new Array(circlePositions.length).fill(groundHeight)
-        })
-      });
-      
-      // 创建外观
-      const appearance = new Cesium.MaterialAppearance({
-        material: material,
-        translucent: true
-      });
-      
       // 创建Primitive
       const primitive = new Cesium.Primitive({
-        geometryInstances: geometryInstance,
-        appearance: appearance,
+        // 使用WallGeometry创建圆形墙（只显示侧面）
+        geometryInstances: new Cesium.GeometryInstance({
+          geometry: new Cesium.WallGeometry({
+            positions: circlePositions,
+            maximumHeights: new Array(circlePositions.length).fill(groundHeight + wallHeight),
+            minimumHeights: new Array(circlePositions.length).fill(groundHeight)
+          })
+        }),
+        appearance: new Cesium.MaterialAppearance({
+          material: new Cesium.Material({
+            fabric: {
+              type: 'Color',
+              uniforms: {
+                color: Cesium.Color.fromCssColorString(options.color).withAlpha(opacity)
+              }
+            },
+            translucent: true,
+          }),
+          translucent: true
+        }),
         asynchronous: asynchronous
       });
       
-      console.log('Primitive创建完成：', primitive);
-      
       // 添加primitive到场景
       map.scene.primitives.add(primitive);
-      
-      // 设置默认的zIndex确保扩散效果显示在其他元素上方
-      // primitive.zIndex = 100;
-      primitive.show = true;
-      
       // 将primitive缓存到graphicMap中
       mapStore.setGraphicMap(options.id, primitive);
-      console.log('Primitive已缓存到graphicMap');
-      
-      // 添加动画更新事件
-      const startTime = Cesium.JulianDate.now();
-      const preUpdateHandler = () => {
-        const currentTime = Cesium.JulianDate.now();
-        const timeDifference = Cesium.JulianDate.secondsDifference(currentTime, startTime);
-        if (primitive && primitive.appearance && primitive.appearance.material) {
-          primitive.appearance.material.uniforms.u_time = timeDifference;
-        }
-      };
-      
-      map.scene.postRender.addEventListener(preUpdateHandler);
-      
-      // 保存事件处理器引用，以便后续清理
-      (primitive as any)._preUpdateHandler = preUpdateHandler;
-      
-      console.log('动画更新事件已添加');
-      
       return primitive;
     } catch (error) {
       console.error('创建圆形墙效果失败:', error);

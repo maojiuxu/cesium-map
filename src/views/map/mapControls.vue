@@ -400,7 +400,6 @@ const toCreateCircleDiffusion = () => {
     color: '#E81224', // 涟漪颜色
     opacity: 0.8, // 增加透明度确保可见
     speed: 5, // 倍速（原始速率的倍数）
-    effectType: 0, // 使用垂直流动光环效果，更明显
     segments: 128 // 增加分段数，使圆形更平滑
   })
 }

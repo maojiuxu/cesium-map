@@ -178,6 +178,8 @@ export function fenceConfig() {
     color?: string,
     height?: number, // 圆锥体高度
     radius?: number, // 圆锥体底部半径
+    heading?: number, // 圆锥体指向方向（弧度）
+    pitch?: number, // 圆锥体俯仰角度（弧度）
   }) => {
     const map = mapStore.getMap()
     if (!map) {
@@ -215,14 +217,32 @@ export function fenceConfig() {
         slices: 64, // 增加切片数，使圆锥更平滑
       });
       
-      // 创建变换矩阵，将圆锥体放置在指定位置并指向天空
+      // 创建变换矩阵，将圆锥体放置在指定位置并根据heading和pitch调整指向
       const translation = Cesium.Cartesian3.subtract(top, center, new Cesium.Cartesian3());
-      const rotation = Cesium.Quaternion.fromAxisAngle(
+      
+      // 获取默认角度
+      const heading = options.heading || 0; // 指向方向，默认0（正北）
+      const pitch = options.pitch || 0;     // 俯仰角度，默认0（水平）
+      const roll = 0;                       // 翻滚角度，默认0
+      
+      // 创建旋转矩阵 - 先绕X轴旋转90度使圆锥从垂直方向转为水平方向
+      const initialRotation = Cesium.Quaternion.fromAxisAngle(
         new Cesium.Cartesian3(1.0, 0.0, 0.0),
-        Cesium.Math.PI_OVER_TWO // 旋转90度，使圆锥向上
+        Cesium.Math.PI_OVER_TWO
       );
+      
+      // 应用heading（绕Z轴旋转）、pitch（绕Y轴旋转）和roll（绕X轴旋转）
+      const hprRotation = Cesium.Transforms.headingPitchRollQuaternion(
+        Cesium.Cartesian3.ZERO,
+        new Cesium.HeadingPitchRoll(heading, pitch, roll)
+      );
+      
+      // 合并旋转
+      const combinedRotation = Cesium.Quaternion.multiply(hprRotation, initialRotation, new Cesium.Quaternion());
+      
+      // 创建最终的模型矩阵
       const rotationMatrix = Cesium.Matrix4.fromRotationTranslation(
-        Cesium.Matrix3.fromQuaternion(rotation),
+        Cesium.Matrix3.fromQuaternion(combinedRotation),
         Cesium.Cartesian3.add(center, translation, new Cesium.Cartesian3())
       );
       
@@ -230,7 +250,7 @@ export function fenceConfig() {
       const material = new Cesium.Material({
         fabric: {
           uniforms: {
-            color: Cesium.Color.fromCssColorString(options.color || '#00FFFF').withAlpha(0.5),
+            color: Cesium.Color.fromCssColorString(options.color || '#00FFFF').withAlpha(0.2),
           },
           source: `
             uniform vec4 color;

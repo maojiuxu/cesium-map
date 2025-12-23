@@ -107,6 +107,7 @@
 </template>
 
 <script setup lang="ts">
+import * as Cesium from 'cesium'
 import { ref } from 'vue'
 import { useMapStore } from '@/stores/modules/mapStore'
 import { setPoint } from '@/components/cesiumMap/ts/setPoint'
@@ -453,11 +454,13 @@ const toCreateFenceFlowEffect = () => {
 const toCreateConicalEffect = () => {
   conicalEffect({
     id: 'conical_effect_001',
-    positions: [117.228433, 31.703159, 0], // 圆锥体中心坐标
-    color: '#E81224', // 圆锥体颜色
-    height: 500, // 圆锥体高度（米）
-    radius: 400, // 圆锥体半径（米）
-  })
+    positions: [117.228433, 31.703159, 0], // 圆锥体底部位置
+    color: '#00FFFF', // 半透明青色
+    height: 900, // 圆锥体高度（米）
+    radius: 100, // 圆锥体底部半径（米）
+    heading: Cesium.Math.toRadians(0), // 指向方向：45度（东北方向）
+    pitch: Cesium.Math.toRadians(20), // 俯仰角度：-30度（向上倾斜）
+  }) 
 }
 
 const { 

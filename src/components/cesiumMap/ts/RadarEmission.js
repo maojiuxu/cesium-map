@@ -70,7 +70,7 @@ class RadarEmission {
   constructor(viewer, options = {}) {
     this.viewer = viewer;
     this.options = {
-      position: [114, 35, 500000.0], // 经度、纬度、高度
+      position: [114, 35, 0], // 经度、纬度、高度
       heading: 135,
       color: Cesium.Color.CORAL,
       length: 500000,

@@ -10,7 +10,6 @@ class RadarPrimitiveMaterialProperty {
       repeat: 30,
       offset: 0,
       thickness: 0.3,
-      pitch: 0,
       ...options,
     };
     this._definitionChanged = new Cesium.Event();

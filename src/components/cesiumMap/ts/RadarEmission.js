@@ -10,6 +10,7 @@ class RadarPrimitiveMaterialProperty {
       repeat: 30,
       offset: 0,
       thickness: 0.3,
+      pitch: 0,
       ...options,
     };
     this._definitionChanged = new Cesium.Event();
@@ -75,6 +76,7 @@ class RadarEmission {
       length: 500000,
       bottomRadius: 50000,
       thickness: 0.1,
+      pitch: 0, // 俯仰角度：-30度（向上倾斜）
       ...options,
     };
     this.init();
@@ -132,7 +134,7 @@ class RadarEmission {
   createRadarCone() {
     const position = Cesium.Cartesian3.fromDegrees(...this.options.position);
     const heading = Cesium.Math.toRadians(this.options.heading);
-    const pitch = Cesium.Math.toRadians(0);
+    const pitch = Cesium.Math.toRadians(this.options.pitch);
     const roll = Cesium.Math.toRadians(0);
     const hpr = new Cesium.HeadingPitchRoll(heading, pitch, roll);
     const orientation = Cesium.Transforms.headingPitchRollQuaternion(

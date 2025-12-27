@@ -19,15 +19,16 @@ export function geometryConfig() {
 
   /**
    * 创建锥形波效果
-   * @param options - 锥形波配置选项
-   * @param options.id - 效果唯一标识符
-   * @param options.positions - 位置数组 [lng, lat, height]
-   * @param options.heading - 指向方向（弧度）
-   * @param options.pitch - 俯仰角度（弧度）
-   * @param options.length - 圆锥高
-   * @param options.bottomRadius - 底部半径
-   * @param options.thickness - 厚度
-   * @param options.color - 颜色（默认 '#00FFFF'）
+   * @param {Object} options - 锥形波配置选项
+   * @param {string} options.id - 效果唯一标识符
+   * @param {number[]} options.positions - 位置数组 [lng, lat, height]
+   * @param {number} options.heading - 指向方向（弧度）
+   * @param {number} options.pitch - 俯仰角度（弧度）
+   * @param {number} options.length - 圆锥高
+   * @param {number} options.bottomRadius - 底部半径
+   * @param {number} options.thickness - 厚度
+   * @param {string} options.color - 颜色（默认 '#00FFFF'）
+   * @returns {Cesium.Entity|null} 创建的锥形波实体，若创建失败则返回null
    */
   const conicalWave = (options: {
     id: string,
@@ -51,128 +52,13 @@ export function geometryConfig() {
       return null
     }
 
-    // 定义雷达材质属性类
-    class RadarPrimitiveMaterialProperty implements Cesium.MaterialProperty {
-      private _definitionChanged: Cesium.Event;
-      private _color: Cesium.Color;
-      private opts: {
-        color: Cesium.Color;
-        duration: number;
-        time: number;
-        repeat: number;
-        offset: number;
-        thickness: number;
-      };
-
-      constructor(options: {
-        color: Cesium.Color;
-        thickness: number;
-      }) {
-        this.opts = {
-          color: Cesium.Color.RED,
-          duration: 2000,
-          time: new Date().getTime(),
-          repeat: 30,
-          offset: 0,
-          thickness: 0.3,
-          ...options,
-        };
-        this._definitionChanged = new Cesium.Event();
-        this._color = this.opts.color;
-      }
-
-      get definitionChanged(): Cesium.Event {
-        return this._definitionChanged;
-      }
-
-      get isConstant(): boolean {
-        return false;
-      }
-
-      getType(): string {
-        return "radarPrimitive";
-      }
-
-      getValue(time: Cesium.JulianDate, result?: any): any {
-        if (!Cesium.defined(result)) {
-          result = {};
-        }
-        
-        result.color = this._color;
-        
-        result.time = ((new Date().getTime() - this.opts.time) % this.opts.duration) / this.opts.duration / 10;
-        result.repeat = this.opts.repeat;
-        result.offset = this.opts.offset;
-        result.thickness = this.opts.thickness;
-        
-        return result;
-      }
-
-      equals(other: Cesium.MaterialProperty): boolean {
-        return this === other;
-      }
-    }
-
-    // 创建雷达材质属性的实现
-    const createRadarMaterialProperty = (color: Cesium.Color = Cesium.Color.RED.withAlpha(0.7), thickness: number = 0.3) => {
-      return new RadarPrimitiveMaterialProperty({ color, thickness });
-    };
-
-    // 注册雷达材质
-    const registerRadarMaterial = () => {
-      const material = Cesium.Material as any;
-      if (!material.radarPrimitiveType) {
-        material.radarPrimitiveType = "radarPrimitive";
-        material.radarPrimitiveSource = `
-          uniform vec4 color;
-          uniform float time;
-          uniform float repeat;
-          uniform float offset;
-          uniform float thickness;
-          czm_material czm_getMaterial(czm_materialInput materialInput) {
-            czm_material material = czm_getDefaultMaterial(materialInput);
-            float sp = 1.0/repeat;
-            vec2 st = materialInput.st;
-            float dis = distance(st, vec2(0.5));
-            float m = mod(dis + offset-time, sp);
-            float a = step(sp*(1.0-thickness), m);
-            material.diffuse = color.rgb;
-            material.alpha = a * color.a;
-            return material;
-          }`;
-
-        material._materialCache.addMaterial(
-          material.radarPrimitiveType,
-          {
-            fabric: {
-              type: material.radarPrimitiveType,
-              uniforms: {
-                color: new Cesium.Color(1.0, 0.0, 0.0, 0.5),
-                time: 0,
-                repeat: 30,
-                offset: 0,
-                thickness: 0.3,
-              },
-              source: material.radarPrimitiveSource,
-            },
-            translucent: function () {
-              return true;
-            },
-          }
-        );
-      }
-    };
-
-    // 注册材质
-    registerRadarMaterial();
-
     // 提取经纬度和高度
     const [lng, lat, height = 0] = options.positions;
     
     // 关键：直接使用经纬度作为圆锥体顶点的位置
     const vertexPosition = Cesium.Cartesian3.fromDegrees(lng, lat, height);
     
-    // 使用用户设置的方向参数
+    // 使用用户设置的方向参数，将度数转换为弧度
     const heading = Cesium.Math.toRadians(options.heading);
     const pitch = Cesium.Math.toRadians(options.pitch);
     const roll = 0;
@@ -203,39 +89,87 @@ export function geometryConfig() {
     Cesium.Cartesian3.normalize(worldDirection, worldDirection);
     
     // 计算圆锥体的中心点
+    // 从顶点位置沿着圆锥体轴线反方向移动halfLength
     const cylinderCenter = Cesium.Cartesian3.clone(vertexPosition);
     const offset = Cesium.Cartesian3.multiplyByScalar(worldDirection, halfLength, new Cesium.Cartesian3());
     Cesium.Cartesian3.subtract(cylinderCenter, offset, cylinderCenter);
-    
-    // 计算圆锥体的方向四元数
-    const orientation = Cesium.Transforms.headingPitchRollQuaternion(
-      vertexPosition,  // 原点
-      hpr              // 方向
-    );
 
     // 创建颜色对象
     const color = Cesium.Color.fromCssColorString(options.color || '#00FFFF');
 
-    // 创建圆锥体实体
-    const entity = map.entities.add({
-      name: "Radar Cone",
-      position: cylinderCenter,  // 圆锥体的中心点
-      orientation: orientation,
-      cylinder: {
-        length: options.length,
-        topRadius: 0,  // 顶部半径为0，形成圆锥顶点
-        bottomRadius: options.bottomRadius,
-        material: createRadarMaterialProperty(color.withAlpha(0.7), options.thickness),
-      },
+    // 创建圆锥体Primitive
+    // 1. 使用headingPitchRollToFixedFrame创建正确的模型矩阵
+    // 这个方法会创建一个以vertexPosition为原点，应用hpr旋转的变换矩阵
+    const modelMatrix = Cesium.Transforms.headingPitchRollToFixedFrame(vertexPosition, hpr);
+    
+    // 2. 创建一个平移矩阵，将圆锥体沿着Z轴负方向移动一半长度
+    // 因为CylinderGeometry默认中心在原点，所以需要将圆锥体平移，使其顶点位于变换原点
+    const translationMatrix = Cesium.Matrix4.fromTranslation(new Cesium.Cartesian3(0, 0, -options.length / 2));
+    
+    // 3. 将平移矩阵与模型矩阵相乘
+    Cesium.Matrix4.multiply(modelMatrix, translationMatrix, modelMatrix);
+    
+    const primitive = new Cesium.Primitive({
+      geometryInstances: new Cesium.GeometryInstance({
+        geometry: new Cesium.CylinderGeometry({
+          length: options.length,
+          topRadius: 0,  // 顶部半径为0，形成圆锥顶点
+          bottomRadius: options.bottomRadius
+        }),
+        modelMatrix: modelMatrix
+      }),
+      appearance: new Cesium.MaterialAppearance({
+        material: new Cesium.Material({
+          fabric: {
+            uniforms: {
+              color: color.withAlpha(0.7),
+              duration: 6000,
+              repeat: 30,
+              offset: 0,
+              thickness: options.thickness || 0.3
+            },
+            source: `
+              uniform vec4 color;
+              uniform float duration;
+              uniform float repeat;
+              uniform float offset;
+              uniform float thickness;
+              
+              czm_material czm_getMaterial(czm_materialInput materialInput) {
+                czm_material material = czm_getDefaultMaterial(materialInput);
+                float sp = 1.0/repeat;
+                vec2 st = materialInput.st;
+                float dis = distance(st, vec2(0.5));
+                
+                // 使用czm_frameNumber作为时间变量，不需要手动更新
+                // 调整动画速度计算方式，使其在不同duration值下都能正常播放
+                float time = mod((czm_frameNumber / 60.0) / (duration / 1000.0), 1.0);
+                
+                float m = mod(dis + offset - time, sp);
+                float a = step(sp*(1.0-thickness), m);
+                material.diffuse = color.rgb;
+                material.alpha = a * color.a;
+                return material;
+              }
+            `
+          },
+          translucent: true
+        }),
+        translucent: true
+      }),
+      asynchronous: false
     });
 
-    // 将实体添加到mapStore中进行管理
-    mapStore.setGraphicMap(options.id, entity);
+    // 将primitive添加到mapStore中进行管理
+    mapStore.setGraphicMap(options.id, primitive);
 
-    return entity;
+    // 添加primitive到场景
+    map.scene.primitives.add(primitive);
+
+    return primitive;
   }
 
   return {
-    conicalWave,
+    conicalWave
   }
 }

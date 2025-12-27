@@ -451,20 +451,8 @@ const toCreateFenceFlowEffect = () => {
   }) 
 }
 
-
-let radarEmission = null;
 // 创建圆锥体特效
 const toCreateConicalEffect = () => {
-  // conicalEffect({
-  //   id: 'conical_effect_001',
-  //   positions: [117.228433, 31.703159, 0], // 圆锥体底部位置
-  //   color: '#00FFFF', // 半透明青色
-  //   height: 900, // 圆锥体高度（米）
-  //   radius: 100, // 圆锥体底部半径（米）
-  //   heading: Cesium.Math.toRadians(0), // 指向方向：45度（东北方向）
-  //   pitch: Cesium.Math.toRadians(0), // 俯仰角度：-30度（向上倾斜）
-  // })
-  
   conicalWave({
     id: 'conical_wave_001',
     positions: [117.229619, 31.726288, 0], // 圆锥体底部位置
@@ -475,23 +463,6 @@ const toCreateConicalEffect = () => {
     thickness: 0.1, // 厚度（米）
     color: '#00FFFF', // 半透明青色
   })
-
-
-
-  // const map = mapStore.getMap()
-  // // 创建雷达发射效果
-  // radarEmission = new RadarEmission(map, {
-  //   position: [117.229619, 31.726288, 0],
-  //   heading: 0,
-  //   color: Cesium.Color.CYAN,
-  //   length: 5000,
-  //   bottomRadius: 500,
-  //   thickness: 0.1,
-  //   pitch: 110, // 俯仰角度：-30度（向上倾斜）
-  // });
-
-  // 定位到雷达
-  // radarEmission.zoomTo();
 }
 
 const { 

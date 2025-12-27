@@ -131,28 +131,48 @@ class RadarEmission {
   }
 
   createRadarCone() {
-    const position = Cesium.Cartesian3.fromDegrees(...this.options.position);
+    // 提取经纬度和高度
+    const [lng, lat, height] = this.options.position;
+    
+    // 关键：直接使用经纬度作为圆柱体的位置，这个位置将作为圆锥体的顶点
+    const vertexPosition = Cesium.Cartesian3.fromDegrees(lng, lat, 0);
+    
+    // 关键：设置pitch=90度，使圆柱体向下延伸
+    // 这样圆柱体的原点（entity.position）就是圆锥体的顶点
     const heading = Cesium.Math.toRadians(this.options.heading);
-    const pitch = Cesium.Math.toRadians(this.options.pitch);
-    const roll = Cesium.Math.toRadians(0);
+    const pitch = Cesium.Math.toRadians(90); // 90度表示向下延伸
+    const roll = 0;
+    
+    // 创建HeadingPitchRoll对象，控制圆锥的朝向
     const hpr = new Cesium.HeadingPitchRoll(heading, pitch, roll);
+    
+    // 计算方向向量，参考点是顶点位置
     const orientation = Cesium.Transforms.headingPitchRollQuaternion(
-      position,
+      vertexPosition,
       hpr
     );
 
     this.entity = this.viewer.entities.add({
       name: "Radar Cone",
-      position: position,
+      // 位置设置为圆锥的顶点（最尖处）
+      position: vertexPosition,
       orientation: orientation,
       cylinder: {
         length: this.options.length,
-        topRadius: 0,
+        topRadius: 0,  // 顶部半径为0，形成圆锥顶点
         bottomRadius: this.options.bottomRadius,
         material: new RadarPrimitiveMaterialProperty({
           color: this.options.color,
           thickness: this.options.thickness,
         }),
+      },
+      // 添加一个红色点标记顶点位置，方便调试
+      point: {
+        pixelSize: 10,
+        color: Cesium.Color.RED,
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 2,
+        position: vertexPosition,
       },
     });
 

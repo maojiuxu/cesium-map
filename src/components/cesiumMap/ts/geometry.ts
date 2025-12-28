@@ -169,7 +169,36 @@ export function geometryConfig() {
     return primitive;
   }
 
+  /**
+   * 移除锥形波效果
+   * @param {string} id - 效果唯一标识符
+   * @returns {boolean} 移除成功返回true，否则返回false
+   */
+  const removeConicalWave = (id: string) => {
+    const map = mapStore.getMap()
+    if (!map) {
+      console.error('地图实例不存在')
+      return false
+    }
+
+    // 获取已创建的锥形波效果
+    const primitive = mapStore.getGraphicMap(id)
+    if (!primitive) {
+      console.error(`id: ${id} 锥形波效果不存在`)
+      return false
+    }
+
+    // 从场景中移除primitive
+    map.scene.primitives.remove(primitive)
+    // 从缓存中清除
+    mapStore.removeGraphicMap(id)
+    
+    console.log(`id: ${id} 锥形波效果已移除`)
+    return true
+  }
+
   return {
-    conicalWave
+    conicalWave,
+    removeConicalWave
   }
 }

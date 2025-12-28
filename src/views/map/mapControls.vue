@@ -108,7 +108,7 @@
 
 <script setup lang="ts">
 import * as Cesium from 'cesium'
-import { ref } from 'vue'
+import { ref, onBeforeUnmount } from 'vue'
 import { useMapStore } from '@/stores/modules/mapStore'
 import { setPoint } from '@/components/cesiumMap/ts/setPoint'
 import { hemisphereConfig } from '@/components/cesiumMap/ts/hemisphere'
@@ -452,17 +452,61 @@ const toCreateFenceFlowEffect = () => {
 }
 
 // 创建圆锥体特效
+let conicalTimer: number | null = null;
+let currentHeading = 45;
+let currentPitch = 190;
+
 const toCreateConicalEffect = () => {
-  conicalWave({
-    id: 'conical_wave_001',
-    positions: [117.229619, 31.726288, 0], // 圆锥体底部位置
-    heading: 45, // 指向方向：45度（东北方向）
-    pitch: 190, // 俯仰角度：-30度（向上倾斜）
-    length: 5000, // 波长（米）
-    bottomRadius: 500, // 底部半径（米）
-    thickness: 0.1, // 厚度（米）
-    color: '#00FFFF', // 半透明青色
-  })
+  // 如果已有定时器，先清除
+  if (conicalTimer) {
+    clearInterval(conicalTimer);
+    conicalTimer = null;
+  }
+
+  // 初始创建圆锥体
+  createConicalWave();
+
+  // 设置定时器，每秒更新一次heading和pitch
+  conicalTimer = setInterval(() => {
+    // 移除旧的圆锥体效果
+    removeConicalWave('conical_wave_001');
+
+    // 更新heading和pitch值
+    currentHeading += 5; // 每秒增加5度
+    currentPitch += 2; // 每秒增加2度
+
+    // 限制pitch值在合理范围内
+    if (currentPitch > 360) {
+      currentPitch -= 360;
+    }
+
+    // 创建新的圆锥体效果
+    createConicalWave();
+  }, 1000) as unknown as number;
+
+  // 创建圆锥体的辅助函数
+  function createConicalWave() {
+    conicalWave({
+      id: 'conical_wave_001',
+      positions: [117.229619, 31.726288, 0], // 圆锥体底部位置
+      heading: currentHeading, // 动态更新的指向方向
+      pitch: currentPitch, // 动态更新的俯仰角度
+      length: 5000, // 波长（米）
+      bottomRadius: 500, // 底部半径（米）
+      thickness: 0.1, // 厚度（米）
+      color: '#00FFFF', // 半透明青色
+    });
+  }
+
+  // 组件卸载时清除定时器
+  onBeforeUnmount(() => {
+    if (conicalTimer) {
+      clearInterval(conicalTimer);
+      conicalTimer = null;
+      // 移除圆锥体效果
+      removeConicalWave('conical_wave_001');
+    }
+  });
 }
 
 const { 
@@ -504,7 +548,8 @@ const {
 } = fenceConfig()
 
 const {
-  conicalWave
+  conicalWave,
+  removeConicalWave
 } = geometryConfig()
 </script>
 

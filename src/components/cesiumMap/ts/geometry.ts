@@ -160,6 +160,9 @@ export function geometryConfig() {
       asynchronous: false
     });
 
+    // 存储原始配置选项，用于后续更新
+    (primitive as any)._originalOptions = { ...options };
+
     // 将primitive添加到mapStore中进行管理
     mapStore.setGraphicMap(options.id, primitive);
 
@@ -197,8 +200,96 @@ export function geometryConfig() {
     return true
   }
 
+  /**
+   * 更新圆锥体姿态
+   * @param {string} id - 圆锥体ID
+   * @param {number} heading - 新的指向方向（度）
+   * @param {number} pitch - 新的俯仰角度（度）
+   * @returns {boolean} 更新成功返回true，否则返回false
+   */
+  const updateConePose = (id: string, heading: number, pitch: number) => {
+    const map = mapStore.getMap()
+    if (!map) {
+      console.error('地图实例不存在')
+      return false
+    }
+
+    // 获取已创建的圆锥体
+    const primitive = mapStore.getGraphicMap(id)
+    if (!primitive) {
+      console.error(`id: ${id} 圆锥体不存在`)
+      return false
+    }
+
+    try {
+      // 获取原始配置选项
+      const originalOptions = (primitive as any)._originalOptions;
+      if (!originalOptions) {
+        console.error(`id: ${id} 圆锥体原始配置选项不存在`)
+        return false
+      }
+
+      // 提取经纬度和高度
+      const [lng, lat, height = 0] = originalOptions.positions;
+      
+      // 计算顶点位置
+      const vertexPosition = Cesium.Cartesian3.fromDegrees(lng, lat, height);
+      
+      // 将度数转换为弧度
+      const headingRad = Cesium.Math.toRadians(heading);
+      const pitchRad = Cesium.Math.toRadians(pitch);
+      const roll = 0;
+      
+      // 创建HeadingPitchRoll对象
+      const hpr = new Cesium.HeadingPitchRoll(headingRad, pitchRad, roll);
+      
+      // 创建新的模型矩阵
+      const modelMatrix = Cesium.Transforms.headingPitchRollToFixedFrame(vertexPosition, hpr);
+      
+      // 创建平移矩阵
+      const translationMatrix = Cesium.Matrix4.fromTranslation(new Cesium.Cartesian3(0, 0, -originalOptions.length / 2));
+      
+      // 将平移矩阵与模型矩阵相乘
+      Cesium.Matrix4.multiply(modelMatrix, translationMatrix, modelMatrix);
+      
+      // 对于Cesium Primitive，我们需要重新创建整个Primitive来更新姿态
+      // 因为直接修改modelMatrix可能不会触发重新渲染
+      
+      // 从场景中移除旧的primitive
+      map.scene.primitives.remove(primitive);
+      
+      // 从缓存中清除旧的primitive
+      mapStore.removeGraphicMap(id);
+      
+      // 使用新的方向参数重新创建圆锥体
+      const newOptions = {
+        ...originalOptions,
+        heading: heading,
+        pitch: pitch
+      };
+      
+      // 重新创建圆锥体
+      const newPrimitive = conicalWave(newOptions);
+      
+      if (newPrimitive) {
+        // 更新原始配置中的方向信息
+        originalOptions.heading = heading;
+        originalOptions.pitch = pitch;
+        console.log(`id: ${id} 圆锥体姿态更新成功`);
+        return true;
+      } else {
+        console.error(`重新创建圆锥体失败`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`更新圆锥体姿态失败:`, error);
+      return false;
+    }
+  }
+
   return {
     conicalWave,
-    removeConicalWave
+    removeConicalWave,
+    updateConePose
   }
 }

@@ -468,9 +468,6 @@ const toCreateConicalEffect = () => {
 
   // 设置定时器，每秒更新一次heading和pitch
   conicalTimer = setInterval(() => {
-    // 移除旧的圆锥体效果
-    removeConicalWave('conical_wave_001');
-
     // 更新heading和pitch值
     currentHeading += 5; // 每秒增加5度
     currentPitch += 2; // 每秒增加2度
@@ -480,8 +477,15 @@ const toCreateConicalEffect = () => {
       currentPitch -= 360;
     }
 
-    // 创建新的圆锥体效果
-    createConicalWave();
+    // 尝试直接更新圆锥体姿态，如果失败则重新创建
+    const updateSuccess = updateConePose('conical_wave_001', currentHeading, currentPitch);
+    console.log('updateSuccess: ', updateSuccess);
+    if (!updateSuccess) {
+      // 移除旧的圆锥体效果
+      // removeConicalWave('conical_wave_001');
+      // // 创建新的圆锥体效果
+      // createConicalWave();
+    }
   }, 1000) as unknown as number;
 
   // 创建圆锥体的辅助函数
@@ -549,7 +553,8 @@ const {
 
 const {
   conicalWave,
-  removeConicalWave
+  removeConicalWave,
+  updateConePose
 } = geometryConfig()
 </script>
 

@@ -182,8 +182,8 @@ export function fenceConfig() {
   const circleFence= (options: {
     id: string,
     center: number[];
-    maxRadius: number;
-    maxHeight: number;
+    radius: number;
+    height: number;
     color: string;
     opacity?: number;
     speed?: number;
@@ -203,8 +203,8 @@ export function fenceConfig() {
     }
     
     // 参数默认值
-    const radius = options.maxRadius;
-    const height = options.maxHeight;
+    const radius = options.radius;
+    const height = options.height;
     const segments = Math.max(8, Math.min(options.segments || 64, 256)); // 限制分段数在8-256之间
     const opacity = options.opacity !== undefined ? options.opacity : 1.0;
     const speed = options.speed || 1.0;

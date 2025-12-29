@@ -427,8 +427,8 @@ const toCreateCircleFence = () => {
   circleFence({
     id: 'circle_diffusion_001',
     center: [117.229619, 31.726288, 500], // 使用地图初始化时的中心点坐标，并增加一点高度
-    maxRadius: 1500, // 最大扩散半径（米）
-    maxHeight: 800, // 最大扩散高度（米）
+    radius: 1500, // 最大扩散半径（米）
+    height: 800, // 最大扩散高度（米）
     color: '#E81224', // 涟漪颜色
     opacity: 0.8, // 增加透明度确保可见
     speed: 5, // 倍速（原始速率的倍数）

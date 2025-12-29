@@ -324,75 +324,75 @@ export function fenceConfig() {
             u_time: 0.0
           },
           source: `
-          uniform vec4 u_color;
-          uniform float u_speed;
-          uniform float u_maxHeight;
-          uniform float u_time;
-          
-          // 简单的噪声函数，用于模拟火焰的随机性
-          float noise(vec2 st) {
-            return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-          }
-          
-          // 分形噪声，用于更自然的火焰效果
-          float fbm(vec2 st) {
-            float value = 0.0;
-            float amplitude = 0.5;
-            float frequency = 1.0;
+            uniform vec4 u_color;
+            uniform float u_speed;
+            uniform float u_maxHeight;
+            uniform float u_time;
             
-            for(int i = 0; i < 5; i++) {
-              value += amplitude * noise(st * frequency);
-              frequency *= 2.0;
-              amplitude *= 0.5;
+            // 简单的噪声函数，用于模拟火焰的随机性
+            float noise(vec2 st) {
+              return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
             }
             
-            return value;
-          }
-          
-          czm_material czm_getMaterial(czm_materialInput materialInput)
-          {
-            czm_material material = czm_getDefaultMaterial(materialInput);
-            vec2 st = materialInput.st;
-            
-            // 使用czm_frameNumber驱动动画
-            float time = czm_frameNumber * 0.005 * u_speed;
-            
-            // 计算火焰上升的高度
-            float flameHeight = fract(time);
-            
-            // 火焰形状 - 底部宽，顶部窄
-            float flameShape = st.t * (1.0 - st.t * 0.5);
-            
-            // 创建火焰效果
-            float flame = 0.0;
-            if (st.t < flameHeight) {
-              // 添加噪声使火焰更自然
-              vec2 noiseSt = vec2(st.s * 5.0 + time * 0.5, st.t * 2.0 - time);
-              float noiseValue = fbm(noiseSt);
+            // 分形噪声，用于更自然的火焰效果
+            float fbm(vec2 st) {
+              float value = 0.0;
+              float amplitude = 0.5;
+              float frequency = 1.0;
               
-              // 火焰强度随高度变化
-              float intensity = 1.0 - (st.t / flameHeight);
-              intensity = pow(intensity, 2.0);
+              for(int i = 0; i < 5; i++) {
+                value += amplitude * noise(st * frequency);
+                frequency *= 2.0;
+                amplitude *= 0.5;
+              }
               
-              // 火焰边缘模糊
-              float edge = smoothstep(0.8, 1.0, noiseValue);
-              flame = intensity * (1.0 - edge);
+              return value;
             }
             
-            // 火焰颜色变化 - 底部红色，顶部黄色
-            vec3 flameColor = mix(vec3(1.0, 0.2, 0.0), vec3(1.0, 1.0, 0.3), st.t);
-            
-            // 混合基础颜色和火焰颜色
-            vec3 finalColor = mix(u_color.rgb, flameColor, flame * 0.7);
-            
-            // 添加发光效果
-            material.emission = finalColor * flame * 2.0;
-            material.diffuse = finalColor;
-            material.alpha = flame * u_color.a;
-            
-            return material;
-          }
-        `
+            czm_material czm_getMaterial(czm_materialInput materialInput)
+            {
+              czm_material material = czm_getDefaultMaterial(materialInput);
+              vec2 st = materialInput.st;
+              
+              // 使用czm_frameNumber驱动动画
+              float time = czm_frameNumber * 0.005 * u_speed;
+              
+              // 计算火焰上升的高度
+              float flameHeight = fract(time);
+              
+              // 火焰形状 - 底部宽，顶部窄
+              float flameShape = st.t * (1.0 - st.t * 0.5);
+              
+              // 创建火焰效果
+              float flame = 0.0;
+              if (st.t < flameHeight) {
+                // 添加噪声使火焰更自然
+                vec2 noiseSt = vec2(st.s * 5.0 + time * 0.5, st.t * 2.0 - time);
+                float noiseValue = fbm(noiseSt);
+                
+                // 火焰强度随高度变化
+                float intensity = 1.0 - (st.t / flameHeight);
+                intensity = pow(intensity, 2.0);
+                
+                // 火焰边缘模糊
+                float edge = smoothstep(0.8, 1.0, noiseValue);
+                flame = intensity * (1.0 - edge);
+              }
+              
+              // 火焰颜色变化 - 底部红色，顶部黄色
+              vec3 flameColor = mix(vec3(1.0, 0.2, 0.0), vec3(1.0, 1.0, 0.3), st.t);
+              
+              // 混合基础颜色和火焰颜色
+              vec3 finalColor = mix(u_color.rgb, flameColor, flame * 0.7);
+              
+              // 添加发光效果
+              material.emission = finalColor * flame * 2.0;
+              material.diffuse = finalColor;
+              material.alpha = flame * u_color.a;
+              
+              return material;
+            }
+          `
         },
         translucent: true
       })

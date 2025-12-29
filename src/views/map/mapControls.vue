@@ -99,7 +99,17 @@
         </div>
         <div v-if="isFenceControlsOpen" class="controls-content">
           <button @click="toCreateFenceFlowEffect" class="control-btn">创建火焰围栏</button>
-          <button @click="toCreateConicalEffect" class="control-btn">创建圆锥体</button>
+        </div>
+      </div>
+
+      <!-- 椎体控制按钮组 -->
+      <div class="button-group pyramid-controls">
+        <div class="group-title" @click="toggleControls('pyramid')">
+          椎体控制
+          <span class="toggle-icon">{{ isPyramidControlsOpen ? '▼' : '▶' }}</span>
+        </div>
+        <div v-if="isPyramidControlsOpen" class="controls-content">
+            <button @click="toCreateConicalEffect" class="control-btn">创建圆锥体</button>
         </div>
       </div>
     </div>
@@ -128,6 +138,7 @@ const isDroneControlsOpen = ref(false)
 const isReplayControlsOpen = ref(false)
 const isDiffusionControlsOpen = ref(false)
 const isFenceControlsOpen = ref(false)
+const isPyramidControlsOpen = ref(false)
 
 // 切换按钮组展开/折叠状态
 const toggleControls = (controlType: string) => {
@@ -152,6 +163,9 @@ const toggleControls = (controlType: string) => {
       break
     case 'fence':
       isFenceControlsOpen.value = !isFenceControlsOpen.value
+      break
+    case 'pyramid':
+      isPyramidControlsOpen.value = !isPyramidControlsOpen.value
       break
   }
 }

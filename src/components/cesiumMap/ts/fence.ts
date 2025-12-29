@@ -669,50 +669,41 @@ export function fenceConfig() {
         primitive: null as any
       }
 
-      // 创建和添加Primitive
-      if (!effect.primitive) {
-        try {
-          // 创建Primitive
-          effect.primitive = new Cesium.Primitive({
-            geometryInstances: new Cesium.GeometryInstance({
-              // 创建墙体几何形状
-              geometry: new Cesium.WallGeometry({
-                positions: Cesium.Cartesian3.fromDegreesArray(positions.flat()),
-                maximumHeights: new Array(positions.length).fill(options.height || 300),
-                minimumHeights: new Array(positions.length).fill(options.minHeight || 0)
-              }),
-              id: effect.id
-            }),
-            appearance: new Cesium.MaterialAppearance({
-              material: Cesium.Material.fromType(WallDiffuseMaterialType),
-              renderState: {
-                cull: {
-                  enabled: false
-                },
-                depthTest: {
-                  enabled: true
-                },
-                depthMask: true
-              }
-            })
-          })
+      // 创建Primitive
+      effect.primitive = new Cesium.Primitive({
+        geometryInstances: new Cesium.GeometryInstance({
+          // 创建墙体几何形状
+          geometry: new Cesium.WallGeometry({
+            positions: Cesium.Cartesian3.fromDegreesArray(positions.flat()),
+            maximumHeights: new Array(positions.length).fill(options.height || 300),
+            minimumHeights: new Array(positions.length).fill(options.minHeight || 0)
+          }),
+          id: effect.id
+        }),
+        appearance: new Cesium.MaterialAppearance({
+          material: Cesium.Material.fromType(WallDiffuseMaterialType),
+          renderState: {
+            cull: {
+              enabled: false
+            },
+            depthTest: {
+              enabled: true
+            },
+            depthMask: true
+          }
+        })
+      })
 
-          // 设置材质属性
-          effect.primitive.appearance.material.setProperty('color', new WallDiffuseMaterialProperty({
-            color: Cesium.Color.fromCssColorString(options.color || '#1E90FF')
-          }).color)
+      // 设置材质属性
+      effect.primitive.appearance.material.setProperty('color', new WallDiffuseMaterialProperty({
+        color: Cesium.Color.fromCssColorString(options.color || '#1E90FF')
+      }).color)
 
-          // 添加到场景
-          map.scene.primitives.add(effect.primitive)
-          mapStore.setGraphicMap(fenceId, effect.primitive)
-          return true
-        } catch (err) {
-          console.error('创建或添加Primitive时出错:', err)
-          return false
-        }
-      }
-      return false
-
+      // 添加到场景
+      map.scene.primitives.add(effect.primitive)
+      mapStore.setGraphicMap(fenceId, effect.primitive)
+      return true
+      
     } catch (err) {
       console.error('WallPolygonDiffuse: 整体执行出错:', err)
       return false

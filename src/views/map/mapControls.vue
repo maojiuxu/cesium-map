@@ -107,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onBeforeUnmount } from 'vue'
 import { useMapStore } from '@/stores/modules/mapStore'
 import { setPoint } from '@/components/cesiumMap/ts/setPoint'
 import { hemisphereConfig } from '@/components/cesiumMap/ts/hemisphere'
@@ -485,11 +485,18 @@ const toCreateConicalEffect = () => {
     }
 
     // 尝试直接更新圆锥体姿态，如果失败则重新创建
-    const updateSuccess = updateConePose('conical_wave_001', currentHeading, currentPitch);
-    if(updateSuccess) console.log('圆锥体姿态更新成功')
+    updateConePose('conical_wave_001', currentHeading, currentPitch);
 
   }, 1000) as unknown as number;
 }
+
+onBeforeUnmount(() => {
+  // 组件卸载时清除定时器
+  if (conicalTimer) {
+    clearInterval(conicalTimer);
+    conicalTimer = null;
+  }
+})
 
 const { 
   setPointByImg, 

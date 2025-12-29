@@ -127,7 +127,7 @@ import { setReplay } from '@/components/cesiumMap/ts/replayPath'
 import { diffusionConfig } from '@/components/cesiumMap/ts/diffusion'
 import { fenceConfig } from '@/components/cesiumMap/ts/fence'
 import { geometryConfig } from '@/components/cesiumMap/ts/geometry'
-import { wallPolygonDiffuse } from '@/components/cesiumMap/ts/WallPolygonDiffuse'
+// import { wallPolygonDiffuse } from '@/components/cesiumMap/ts/WallPolygonDiffuse'
 
 // 获取store实例，保持响应性
 const mapStore = useMapStore()
@@ -447,7 +447,7 @@ const toRemoveSingleDiffusion = () => {
 // 创建扩散围栏效果
 const toCreateDiffusionFence = () => {
   // 创建扩散围栏
-  wallPolygonDiffuse({
+  circleDiffuseFence({
     id: 'diffusion_fence_001',
     center: [117.229619, 31.726288, 500], // 使用地图初始化时的中心点坐标，并增加一点高度
     radius: 1500, // 最大扩散半径（米）
@@ -564,7 +564,8 @@ const {
 const {
   polygonFence,
   circleFence,
-  fenceFlowEffect
+  fenceFlowEffect,
+  circleDiffuseFence
 } = fenceConfig()
 
 const {

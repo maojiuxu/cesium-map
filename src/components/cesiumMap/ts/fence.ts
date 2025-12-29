@@ -639,12 +639,6 @@ export function fenceConfig() {
   }
 
   /**
-   * 存储多边形墙体扩散效果的引用对象
-   * @private
-   */
-  const wallPolygonDiffuseRef: { [key: string]: any } = {}
-
-  /**
    * 创建墙体多边形扩散效果
    * @param fenceId 围栏唯一标识
    * @param positions 围栏位置坐标数组
@@ -654,15 +648,18 @@ export function fenceConfig() {
   const wallPolygonDiffuse = (fenceId: string, positions: any[], options: any): boolean => {
 
     const map = mapStore.getMap()
-    if (!map) return false
+    if (!map) {
+      console.error('地图实例不存在')
+      return false
+    }
+
+    // 检查是否已存在相同ID的效果
+    if (mapStore.getGraphicMap(fenceId)) {
+      console.log(`id: ${fenceId} 效果已存在`)
+      return true
+    }
 
     try {
-      // 验证positions参数
-      if (!positions || !Array.isArray(positions) || positions.length === 0) {
-        console.error('WallPolygonDiffuse: 无效的positions参数', positions)
-        return false
-      }
-
       // 创建效果配置对象
       const effect = {
         id: fenceId,
@@ -673,60 +670,49 @@ export function fenceConfig() {
       }
 
       // 创建和添加Primitive
-      const createAndAddPrimitive = (): boolean => {
-        if (!effect.primitive) {
-          try {
-            // 创建Primitive
-            effect.primitive = new Cesium.Primitive({
-              geometryInstances: new Cesium.GeometryInstance({
-                // 创建墙体几何形状
-                geometry: new Cesium.WallGeometry({
-                  positions: Cesium.Cartesian3.fromDegreesArray(positions.flat()),
-                  maximumHeights: new Array(positions.length).fill(options.height || 300),
-                  minimumHeights: new Array(positions.length).fill(options.minHeight || 0)
-                }),
-                id: effect.id
+      if (!effect.primitive) {
+        try {
+          // 创建Primitive
+          effect.primitive = new Cesium.Primitive({
+            geometryInstances: new Cesium.GeometryInstance({
+              // 创建墙体几何形状
+              geometry: new Cesium.WallGeometry({
+                positions: Cesium.Cartesian3.fromDegreesArray(positions.flat()),
+                maximumHeights: new Array(positions.length).fill(options.height || 300),
+                minimumHeights: new Array(positions.length).fill(options.minHeight || 0)
               }),
-              appearance: new Cesium.MaterialAppearance({
-                material: Cesium.Material.fromType(WallDiffuseMaterialType),
-                renderState: {
-                  cull: {
-                    enabled: false
-                  },
-                  depthTest: {
-                    enabled: true
-                  },
-                  depthMask: true
-                }
-              })
+              id: effect.id
+            }),
+            appearance: new Cesium.MaterialAppearance({
+              material: Cesium.Material.fromType(WallDiffuseMaterialType),
+              renderState: {
+                cull: {
+                  enabled: false
+                },
+                depthTest: {
+                  enabled: true
+                },
+                depthMask: true
+              }
             })
+          })
 
-            // 设置材质属性
-            effect.primitive.appearance.material.setProperty('color', new WallDiffuseMaterialProperty({
-              color: Cesium.Color.fromCssColorString(options.color || '#1E90FF')
-            }).color)
+          // 设置材质属性
+          effect.primitive.appearance.material.setProperty('color', new WallDiffuseMaterialProperty({
+            color: Cesium.Color.fromCssColorString(options.color || '#1E90FF')
+          }).color)
 
-            // 添加到场景
-            map.scene.primitives.add(effect.primitive)
-            return true
-          } catch (err) {
-            console.error('创建或添加Primitive时出错:', err)
-            return false
-          }
+          // 添加到场景
+          map.scene.primitives.add(effect.primitive)
+          mapStore.setGraphicMap(fenceId, effect.primitive)
+          return true
+        } catch (err) {
+          console.error('创建或添加Primitive时出错:', err)
+          return false
         }
-        return false
       }
+      return false
 
-      // 执行创建和添加Primitive
-      if (createAndAddPrimitive()) {
-        // 存储效果引用
-        wallPolygonDiffuseRef[fenceId] = effect
-        console.log('WallPolygonDiffuse: 创建成功', fenceId)
-        return true
-      } else {
-        console.error('WallPolygonDiffuse: 创建失败', fenceId)
-        return false
-      }
     } catch (err) {
       console.error('WallPolygonDiffuse: 整体执行出错:', err)
       return false

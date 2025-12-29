@@ -107,8 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import * as Cesium from 'cesium'
-import { ref, onBeforeUnmount } from 'vue'
+import { ref } from 'vue'
 import { useMapStore } from '@/stores/modules/mapStore'
 import { setPoint } from '@/components/cesiumMap/ts/setPoint'
 import { hemisphereConfig } from '@/components/cesiumMap/ts/hemisphere'
@@ -116,7 +115,6 @@ import { move } from '@/components/cesiumMap/ts/movePoint'
 import { setReplay } from '@/components/cesiumMap/ts/replayPath'
 import { diffusionConfig } from '@/components/cesiumMap/ts/diffusion'
 import { fenceConfig } from '@/components/cesiumMap/ts/fence'
-import RadarEmission from '@/components/cesiumMap/ts/RadarEmission'
 import { geometryConfig } from '@/components/cesiumMap/ts/geometry'
 
 // 获取store实例，保持响应性
@@ -464,7 +462,16 @@ const toCreateConicalEffect = () => {
   }
 
   // 初始创建圆锥体
-  createConicalWave();
+  conicalWave({
+    id: 'conical_wave_001',
+    positions: [117.229619, 31.726288, 0], // 圆锥体底部位置
+    heading: currentHeading, // 动态更新的指向方向
+    pitch: currentPitch, // 动态更新的俯仰角度
+    length: 5000, // 波长（米）
+    bottomRadius: 500, // 底部半径（米）
+    thickness: 0.1, // 厚度（米）
+    color: '#00FFFF', // 半透明青色
+  });
 
   // 设置定时器，每秒更新一次heading和pitch
   conicalTimer = setInterval(() => {
@@ -479,38 +486,9 @@ const toCreateConicalEffect = () => {
 
     // 尝试直接更新圆锥体姿态，如果失败则重新创建
     const updateSuccess = updateConePose('conical_wave_001', currentHeading, currentPitch);
-    console.log('updateSuccess: ', updateSuccess);
-    if (!updateSuccess) {
-      // 移除旧的圆锥体效果
-      // removeConicalWave('conical_wave_001');
-      // // 创建新的圆锥体效果
-      // createConicalWave();
-    }
+    if(updateSuccess) console.log('圆锥体姿态更新成功')
+
   }, 1000) as unknown as number;
-
-  // 创建圆锥体的辅助函数
-  function createConicalWave() {
-    conicalWave({
-      id: 'conical_wave_001',
-      positions: [117.229619, 31.726288, 0], // 圆锥体底部位置
-      heading: currentHeading, // 动态更新的指向方向
-      pitch: currentPitch, // 动态更新的俯仰角度
-      length: 5000, // 波长（米）
-      bottomRadius: 500, // 底部半径（米）
-      thickness: 0.1, // 厚度（米）
-      color: '#00FFFF', // 半透明青色
-    });
-  }
-
-  // 组件卸载时清除定时器
-  onBeforeUnmount(() => {
-    if (conicalTimer) {
-      clearInterval(conicalTimer);
-      conicalTimer = null;
-      // 移除圆锥体效果
-      removeConicalWave('conical_wave_001');
-    }
-  });
 }
 
 const { 
@@ -553,7 +531,6 @@ const {
 
 const {
   conicalWave,
-  removeConicalWave,
   updateConePose
 } = geometryConfig()
 </script>

@@ -2,6 +2,7 @@
  * 围栏实体管理模块
  * 
  * 提供在Cesium地图上创建、更新、移动和删除围栏实体的功能
+ * 整合了多边形扩散墙效果
  * 
  * @author huweili
  * @email czxyhuweili@163.com
@@ -10,6 +11,143 @@
  */
 import * as Cesium from 'cesium'
 import { useMapStore } from '@/stores/modules/mapStore'
+
+// 定义墙体扩散材质常量
+const WallDiffuseMaterialType = 'WallDiffuseMaterialType'
+const WallDiffuseMaterialSource = `
+  uniform vec4 color;
+  czm_material czm_getMaterial(czm_materialInput materialInput){
+  czm_material material = czm_getDefaultMaterial(materialInput);
+  vec2 st = materialInput.st;
+  material.diffuse = color.rgb * 2.0;
+  material.alpha = color.a * (1.0-fract(st.t)) * 0.8;
+  return material;
+  }
+`
+
+/**
+ * 墙体扩散材质属性类
+ * 实现动态扩散墙的墙体效果，支持随高度变化的透明度变化
+ */
+export class WallDiffuseMaterialProperty implements Cesium.MaterialProperty {
+  /**
+   * 材质属性变化事件
+   * @private
+   */
+  private _definitionChanged: Cesium.Event
+
+  /**
+ * 材质颜色
+ * @private
+ */
+  private _color: Cesium.Color
+
+  /**
+ * 创建墙体扩散材质属性实例
+ * @param options 配置选项
+ * @param options.color 材质颜色
+ */
+  constructor(options: {
+    color: Cesium.Color
+  }) {
+    this._definitionChanged = new Cesium.Event()
+    this._color = options.color
+  }
+
+  /**
+   * 获取材质是否为常量
+   * @returns 是否为常量
+   */
+  get isConstant(): boolean {
+    return false
+  }
+
+  /**
+   * 获取材质属性变化事件
+   * @returns 变化事件
+   */
+  get definitionChanged(): Cesium.Event {
+    return this._definitionChanged
+  }
+
+  /**
+   * 获取材质类型
+   * @param _time 时间参数
+   * @returns 材质类型
+   */
+  getType(_time: Cesium.JulianDate): string {
+    return WallDiffuseMaterialType
+  }
+
+  /**
+   * 获取材质属性值
+   * @param _time 时间参数
+   * @param result 结果对象（可选）
+   * @returns 材质属性值
+   */
+  getValue(_time: Cesium.JulianDate, result?: any): any {
+    if (!Cesium.defined(result)) {
+      result = {}
+    }
+
+    result.color = this._color
+    return result
+  }
+
+  /**
+   * 比较两个材质属性是否相等
+   * @param other 要比较的材质属性
+   * @returns 是否相等
+   */
+  equals(other: any): boolean {
+    if (this === other) {
+      return true
+    }
+    if (!(other instanceof WallDiffuseMaterialProperty)) {
+      return false
+    }
+    // 简化的颜色比较
+    return Cesium.Color.equals(this._color, other._color)
+  }
+
+  /**
+   * 获取材质颜色
+   * @returns 材质颜色
+   */
+  get color(): Cesium.Color {
+    return this._color
+  }
+
+  /**
+   * 设置材质颜色
+   * @param value 新的颜色值
+   */
+  set color(value: Cesium.Color) {
+    this._color = value
+    this._definitionChanged.raiseEvent()
+  }
+}
+
+// 添加材质到Cesium材质缓存
+// 使用类型断言来避免TypeScript错误
+const materialCache = (Cesium.Material as any)._materialCache
+if (materialCache) {
+  materialCache.addMaterial(
+    WallDiffuseMaterialType,
+    {
+      fabric: {
+        type: WallDiffuseMaterialType,
+        uniforms: {
+          color: new Cesium.Color(1.0, 0.0, 0.0, 1.0)
+        },
+        source: WallDiffuseMaterialSource
+      },
+      translucent: function (): boolean {
+        return true
+      }
+    }
+  )
+}
 
 export function fenceConfig() {
 
@@ -500,9 +638,105 @@ export function fenceConfig() {
     }
   }
 
+  /**
+   * 存储多边形墙体扩散效果的引用对象
+   * @private
+   */
+  const wallPolygonDiffuseRef: { [key: string]: any } = {}
+
+  /**
+   * 创建墙体多边形扩散效果
+   * @param fenceId 围栏唯一标识
+   * @param positions 围栏位置坐标数组
+   * @param options 配置选项
+   * @returns 创建是否成功
+   */
+  const wallPolygonDiffuse = (fenceId: string, positions: any[], options: any): boolean => {
+
+    const map = mapStore.getMap()
+    if (!map) return false
+
+    try {
+      // 验证positions参数
+      if (!positions || !Array.isArray(positions) || positions.length === 0) {
+        console.error('WallPolygonDiffuse: 无效的positions参数', positions)
+        return false
+      }
+
+      // 创建效果配置对象
+      const effect = {
+        id: fenceId,
+        positions,
+        options,
+        updateEvent: null as any,
+        primitive: null as any
+      }
+
+      // 创建和添加Primitive
+      const createAndAddPrimitive = (): boolean => {
+        if (!effect.primitive) {
+          try {
+            // 创建Primitive
+            effect.primitive = new Cesium.Primitive({
+              geometryInstances: new Cesium.GeometryInstance({
+                // 创建墙体几何形状
+                geometry: new Cesium.WallGeometry({
+                  positions: Cesium.Cartesian3.fromDegreesArray(positions.flat()),
+                  maximumHeights: new Array(positions.length).fill(options.height || 300),
+                  minimumHeights: new Array(positions.length).fill(options.minHeight || 0)
+                }),
+                id: effect.id
+              }),
+              appearance: new Cesium.MaterialAppearance({
+                material: Cesium.Material.fromType(WallDiffuseMaterialType),
+                renderState: {
+                  cull: {
+                    enabled: false
+                  },
+                  depthTest: {
+                    enabled: true
+                  },
+                  depthMask: true
+                }
+              })
+            })
+
+            // 设置材质属性
+            effect.primitive.appearance.material.setProperty('color', new WallDiffuseMaterialProperty({
+              color: Cesium.Color.fromCssColorString(options.color || '#1E90FF')
+            }).color)
+
+            // 添加到场景
+            map.scene.primitives.add(effect.primitive)
+            return true
+          } catch (err) {
+            console.error('创建或添加Primitive时出错:', err)
+            return false
+          }
+        }
+        return false
+      }
+
+      // 执行创建和添加Primitive
+      if (createAndAddPrimitive()) {
+        // 存储效果引用
+        wallPolygonDiffuseRef[fenceId] = effect
+        console.log('WallPolygonDiffuse: 创建成功', fenceId)
+        return true
+      } else {
+        console.error('WallPolygonDiffuse: 创建失败', fenceId)
+        return false
+      }
+    } catch (err) {
+      console.error('WallPolygonDiffuse: 整体执行出错:', err)
+      return false
+    }
+  }
+
   return {
     polygonFence,
     circleFence,
-    fenceFlowEffect
+    fenceFlowEffect,
+    wallPolygonDiffuse
   }
 }

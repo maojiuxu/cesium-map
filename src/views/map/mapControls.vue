@@ -127,7 +127,7 @@ import { setReplay } from '@/components/cesiumMap/ts/replayPath'
 import { diffusionConfig } from '@/components/cesiumMap/ts/diffusion'
 import { fenceConfig } from '@/components/cesiumMap/ts/fence'
 import { geometryConfig } from '@/components/cesiumMap/ts/geometry'
-import WallPolygonDiffuse from '@/components/cesiumMap/ts/WallPolygonDiffuse.js'
+import { wallPolygonDiffuse } from '@/components/cesiumMap/ts/WallPolygonDiffuse'
 
 // 获取store实例，保持响应性
 const mapStore = useMapStore()
@@ -244,7 +244,7 @@ const toMoveDronePoint = () => {
   const newLat = 31.715287 + (Math.random() - 0.5) * 0.01;
   const newHeight =  500;
   // const newHeading = Math.random() * 360;
-  const newHeading = 0;
+
 
   // 平滑飞行到新位置 （通过提供的glb模型设置点位）
   moveDronePoint({pointId: '4', lng: newLng, lat: newLat, height: newHeight, speed: 100});
@@ -257,7 +257,7 @@ const toMoveDronePoint1 = () => {
   const newLat = 31.715287 + (Math.random() - 0.5) * 0.01;
   const newHeight =  500;
   // const newHeading = Math.random() * 360;
-  const newHeading = 0;
+
 
   // 平滑飞行到新位置 （通过提供的glb模型设置点位）
   moveDronePoint({pointId: '5', lng: newLng, lat: newLat, height: newHeight, speed: 100});
@@ -446,14 +446,8 @@ const toRemoveSingleDiffusion = () => {
 
 // 创建扩散围栏效果
 const toCreateDiffusionFence = () => {
-  const viewer = mapStore.getMap()
-  if (!viewer) {
-    console.error('地图实例不存在，无法创建扩散墙')
-    return
-  }
-  
-  new WallPolygonDiffuse({
-    viewer: viewer,
+  // 创建扩散围栏
+  wallPolygonDiffuse({
     id: 'diffusion_fence_001',
     center: [117.229619, 31.726288, 500], // 使用地图初始化时的中心点坐标，并增加一点高度
     radius: 1500, // 最大扩散半径（米）

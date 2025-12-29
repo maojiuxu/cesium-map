@@ -647,6 +647,12 @@ const {
   border-color: rgba(100, 255, 150, 0.3);
 }
 
+.map-controls .pyramid-controls {
+  margin-top: 6px;
+  background: rgba(60, 80, 100, 0.95);
+  border-color: rgba(150, 255, 255, 0.5);
+}
+
 .map-controls .model-controls {
   margin-top: 6px;
   background: rgba(60, 40, 20, 0.9);

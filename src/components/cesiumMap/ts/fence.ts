@@ -611,7 +611,7 @@ export function fenceConfig() {
           return
         }
         
-        try {
+        try {      
           // 创建新的Primitive
           const newPrimitive = new Cesium.Primitive({
             geometryInstances: new Cesium.GeometryInstance({
@@ -713,10 +713,273 @@ export function fenceConfig() {
     }
   }
 
+  /**
+   * 创建多边形扩散墙效果
+   * @param options 配置选项
+   * @returns 创建的效果实例
+   */
+  const polygonDiffuseFence = (options: {
+    id: string,
+    positions: number[][];
+    height: number;
+    color: string;
+    opacity?: number;
+    speed?: number;
+    minRadius?: number;
+  }) => {
+    const mapStore = useMapStore()
+    const map = mapStore.getMap()
+    
+    if (!map) {
+      console.error('地图实例不存在')
+      return null
+    }
+
+    // 检查是否已存在相同ID的效果
+    if (mapStore.getGraphicMap(options.id)) {
+      console.warn(`ID: ${options.id} 的多边形扩散效果已存在`)
+      return null
+    }
+
+    // 参数默认值
+    const positions = options.positions || []
+    const height = options.height || 100.0
+    const color = options.color || '#FFFF00'
+    const opacity = options.opacity !== undefined ? options.opacity : 1.0
+    const speed = options.speed || 5.0
+
+    // 验证positions参数
+    if (!Array.isArray(positions) || positions.length < 3) {
+      console.error('多边形顶点数量不足，至少需要3个顶点')
+      return null
+    }
+
+    // 当前扩散状态 - 从0开始，实现从中心点扩散效果
+    let currentRadius = 0
+    let currentHeight = height
+
+    // 计算多边形中心点
+    const center = positions.reduce((sum, pos) => {
+      return [sum[0] + pos[0], sum[1] + pos[1]]
+    }, [0, 0])
+    center[0] /= positions.length
+    center[1] /= positions.length
+
+    // 计算最大扩散半径（从中心到最远顶点的距离）
+    const maxRadius = Math.max(...positions.map(pos => {
+      const dx = pos[0] - center[0]
+      const dy = pos[1] - center[1]
+      // 将经纬度差值转换为大致的米数（1度约等于111km）
+      return Math.sqrt(dx * dx + dy * dy) * 111000
+    }))
+
+    /**
+     * 获取扩散后的多边形节点位置和高度
+     * @param basePositions 基础多边形顶点坐标
+     * @param currentRadius 当前扩散半径
+     * @param currentHeight 当前高度
+     * @returns 扩散后的多边形节点位置数组
+     */
+    const getDiffusePositions = (basePositions: number[][], currentRadius: number, currentHeight: number): Cesium.Cartesian3[] => {
+      const diffusePositions: Cesium.Cartesian3[] = []
+      
+      // 创建中心的笛卡尔坐标
+      const centerCartesian = Cesium.Cartesian3.fromDegrees(center[0], center[1], currentHeight)
+
+      // 如果当前半径为0或非常小，返回中心点（创建一个极小的多边形）
+      if (currentRadius < 1) {
+        // 创建一个极小的正方形，以中心点为中心
+        const tinyOffset = 0.0000001 // 极小的经纬度偏移
+        diffusePositions.push(Cesium.Cartesian3.fromDegrees(center[0] - tinyOffset, center[1] - tinyOffset, currentHeight))
+        diffusePositions.push(Cesium.Cartesian3.fromDegrees(center[0] + tinyOffset, center[1] - tinyOffset, currentHeight))
+        diffusePositions.push(Cesium.Cartesian3.fromDegrees(center[0] + tinyOffset, center[1] + tinyOffset, currentHeight))
+        diffusePositions.push(Cesium.Cartesian3.fromDegrees(center[0] - tinyOffset, center[1] + tinyOffset, currentHeight))
+        diffusePositions.push(diffusePositions[0]) // 封闭多边形
+        return diffusePositions
+      }
+
+      // 计算每个顶点的扩散位置
+      for (const pos of basePositions) {
+        // 创建原始顶点的笛卡尔坐标
+        const originalCartesian = Cesium.Cartesian3.fromDegrees(pos[0], pos[1], currentHeight)
+        
+        // 计算从中心到原始顶点的向量
+        const vector = Cesium.Cartesian3.subtract(originalCartesian, centerCartesian, new Cesium.Cartesian3())
+        const originalDistance = Cesium.Cartesian3.magnitude(vector)
+        
+        // 如果当前扩散半径小于原始顶点到中心的距离，按比例计算扩散位置
+        // 如果当前扩散半径大于等于原始距离，使用原始顶点位置
+        const scaleFactor = Math.min(currentRadius / originalDistance, 1.0)
+        Cesium.Cartesian3.normalize(vector, vector)
+        
+        // 计算扩散后的位置
+        const offset = Cesium.Cartesian3.multiplyByScalar(vector, originalDistance * scaleFactor, new Cesium.Cartesian3())
+        const newPosition = Cesium.Cartesian3.add(centerCartesian, offset, new Cesium.Cartesian3())
+        
+        diffusePositions.push(newPosition)
+      }
+      
+      // 封闭多边形，首节点需要存两次
+      diffusePositions.push(diffusePositions[0])
+      return diffusePositions
+    }
+
+      try {
+        // 创建初始的墙体几何
+        const createWallGeometry = () => {
+          const diffusePositions = getDiffusePositions(positions, currentRadius, currentHeight)
+          
+          // 确保位置数组有足够的元素
+          if (diffusePositions.length < 5) { // 至少需要5个点（4个顶点+1个闭合点）
+            console.error('位置数组长度不足，无法创建墙体几何')
+            return null
+          }
+          
+          try {
+            // 如果是初始极小状态，创建一个简单的矩形几何
+            if (currentRadius < 1) {
+              return new Cesium.RectangleGeometry({
+                rectangle: Cesium.Rectangle.fromCartesianArray(diffusePositions),
+                height: 0,
+                extrudedHeight: currentHeight,
+                vertexFormat: Cesium.VertexFormat.POSITION_ONLY
+              })
+            }
+            
+            // 正常扩散状态下使用PolygonGeometry
+            return new Cesium.PolygonGeometry({
+              polygonHierarchy: new Cesium.PolygonHierarchy(diffusePositions),
+              extrudedHeight: currentHeight,
+              height: 0,
+              vertexFormat: Cesium.VertexFormat.POSITION_AND_ST
+            })
+          } catch (error) {
+            console.error('创建几何图形失败:', error)
+            return null
+          }
+        }
+
+      // 创建可更新的引用对象
+      const effectRef = {
+        primitive: null as Cesium.Primitive | null,
+        updateEvent: null as any,
+        isDestroyed: false,
+        currentRadius: () => currentRadius,
+        currentHeight: () => currentHeight
+      }
+
+      // 创建并添加Primitive到场景的函数
+      const createAndAddPrimitive = () => {
+        // 检查是否已被销毁
+        if (effectRef.isDestroyed) {
+          return
+        }
+        
+        try {
+          // 创建新的Primitive
+          const newPrimitive = new Cesium.Primitive({
+            geometryInstances: new Cesium.GeometryInstance({
+              geometry: createWallGeometry()
+            }),
+            appearance: new Cesium.MaterialAppearance({
+              material: new Cesium.Material({
+                fabric: {
+                  uniforms: {
+                    u_color: Cesium.Color.fromCssColorString(color).withAlpha(opacity),
+                    u_speed: speed,
+                    u_time: 0.0
+                  },
+                  source: `
+                    uniform vec4 u_color;
+                    uniform float u_speed;
+                    uniform float u_time;
+                    
+                    czm_material czm_getMaterial(czm_materialInput materialInput){
+                      czm_material material = czm_getDefaultMaterial(materialInput);
+                      vec2 st = materialInput.st;
+                      material.diffuse = u_color.rgb * 2.0;
+                      material.alpha = u_color.a * (1.0-fract(st.t)) * 0.8;
+                      return material;
+                    }
+                  `
+                },
+                translucent: true
+              }),
+              translucent: true,
+              closed: false
+            }),
+            asynchronous: false
+          })
+          
+          // 添加到场景
+          map.scene.primitives.add(newPrimitive)
+          
+          // 移除旧的Primitive
+          if (effectRef.primitive) {
+            try {
+              // 安全检查：确保primitive仍然存在于场景中
+              const isPrimitiveInScene = map.scene.primitives.contains(effectRef.primitive)
+              
+              // 只从场景中移除存在的primitive
+              if (isPrimitiveInScene) {
+                map.scene.primitives.remove(effectRef.primitive)
+              }
+              
+              // 检查对象是否已被销毁，避免重复销毁
+              if (typeof effectRef.primitive.isDestroyed === 'function' && !effectRef.primitive.isDestroyed()) {
+                effectRef.primitive.destroy()
+              }
+            } catch (destroyError) {
+              // 如果操作失败（比如对象已经被销毁），忽略错误
+              console.error('移除或销毁旧Primitive时出错:', destroyError)
+            }
+          }
+          
+          // 更新引用
+          effectRef.primitive = newPrimitive
+        } catch (error) {
+          console.error('更新Primitive失败:', error)
+        }
+      }
+
+      // 创建初始Primitive
+      createAndAddPrimitive()
+
+      // 创建时间监听
+      effectRef.updateEvent = map.clock.onTick.addEventListener(() => {
+        // 检查是否已被销毁
+        if (effectRef.isDestroyed) {
+          return
+        }
+        
+        // 更新扩散状态 - 只增加半径，不改变高度
+        currentRadius += speed
+        
+        // 判断扩散是否超出最大半径
+        if (currentRadius > maxRadius * 1.2) { // 超出最大半径20%后重置
+          currentRadius = 0
+        }
+
+        // 重新创建Primitive
+        createAndAddPrimitive()
+      })
+
+      // 将引用对象缓存到graphicMap中
+      mapStore.setGraphicMap(options.id, effectRef)
+      
+      console.log('多边形扩散效果(Primitive版)创建成功')
+      return effectRef.primitive
+    } catch (error) {
+      console.error('创建多边形扩散效果(Primitive版)失败:', error)
+      return null
+    }
+  }
+
   return {
     polygonFence,
     circleFence,
     fenceFlowEffect,
-    circleDiffuseFence
+    circleDiffuseFence,
+    polygonDiffuseFence
   }
 }

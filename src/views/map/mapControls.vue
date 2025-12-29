@@ -98,7 +98,8 @@
         <div v-if="isFenceControlsOpen" class="controls-content">
           <button @click="toCreatePolygonFence" class="control-btn">创建多边形墙</button>
           <button @click="toCreateCircleFence" class="control-btn">创建圆形墙</button>
-          <button @click="toCreateDiffusionFence" class="control-btn">创建扩散墙</button>
+          <button @click="toCreateCircleDiffusionFence" class="control-btn">圆形扩散墙</button>
+          <button @click="toCreatePolygonDiffusionFence" class="control-btn">多边形扩散墙</button>
           <button @click="toCreateFenceFlowEffect" class="control-btn">创建火焰围栏</button>
         </div>
       </div>
@@ -445,7 +446,7 @@ const toRemoveSingleDiffusion = () => {
 }
 
 // 创建扩散围栏效果
-const toCreateDiffusionFence = () => {
+const toCreateCircleDiffusionFence = () => {
   // 创建扩散围栏
   circleDiffuseFence({
     id: 'diffusion_fence_001',
@@ -456,6 +457,23 @@ const toCreateDiffusionFence = () => {
     opacity: 0.8, // 增加透明度确保可见
     speed: 5, // 倍速（原始速率的倍数）
     segments: 128 // 增加分段数，使圆形更平滑
+  })
+}
+
+// 创建多边形扩散围栏效果
+const toCreatePolygonDiffusionFence = () => {
+  polygonDiffuseFence({
+    id: 'polygon_diffusion_001',
+    color: '#E81224', // 涟漪颜色
+    speed: 5, // 倍速（原始速率的倍数）
+    positions: [
+      [117.228433, 31.703159, 0],
+      [117.215433, 31.714159, 0],
+      [117.222433, 31.723859, 0],
+      [117.238433, 31.703159, 0],
+      [117.228433, 31.703159, 0],
+    ],
+    height: 800, // 最大扩散高度（米）
   })
 }
 
@@ -565,7 +583,8 @@ const {
   polygonFence,
   circleFence,
   fenceFlowEffect,
-  circleDiffuseFence
+  circleDiffuseFence,
+  polygonDiffuseFence
 } = fenceConfig()
 
 const {

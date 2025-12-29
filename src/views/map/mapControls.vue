@@ -121,7 +121,7 @@ import { ref, onBeforeUnmount } from 'vue'
 import { useMapStore } from '@/stores/modules/mapStore'
 import { setPoint } from '@/components/cesiumMap/ts/setPoint'
 import { hemisphereConfig } from '@/components/cesiumMap/ts/hemisphere'
-import { move } from '@/components/cesiumMap/ts/movePoint'
+import { movePointConfig } from '@/components/cesiumMap/ts/movePoint'
 import { setReplay } from '@/components/cesiumMap/ts/replayPath'
 import { diffusionConfig } from '@/components/cesiumMap/ts/diffusion'
 import { fenceConfig } from '@/components/cesiumMap/ts/fence'
@@ -522,7 +522,7 @@ const {
 const {
   movePoint,
   moveDronePoint,
-} = move(process.env.BASE_URL)
+} = movePointConfig(process.env.BASE_URL)
 
 const {
   setHemisphere,

@@ -13,7 +13,7 @@ import * as Cesium from 'cesium'
 import { useMapStore } from '@/stores/modules/mapStore'
 import { setPath } from '@/components/cesiumMap/ts/setPath'
 
-export function movePath() {
+export function movePathConfig() {
   // 获取地图store实例
   const mapStore = useMapStore()
   const {

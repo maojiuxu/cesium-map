@@ -11,9 +11,9 @@
 import * as Cesium from 'cesium'
 import { useMapStore } from '@/stores/modules/mapStore'
 import { setPoint } from '@/components/cesiumMap/ts/setPoint'
-import { movePath } from '@/components/cesiumMap/ts/movePath'
+import { movePathConfig } from '@/components/cesiumMap/ts/movePath'
 
-export function move(baseUrl: string) {
+export function movePointConfig(baseUrl: string) {
   // 获取地图store实例
   const mapStore = useMapStore()
   const {
@@ -22,7 +22,7 @@ export function move(baseUrl: string) {
 
   const {
     moveDroneTrail,
-  } = movePath()
+  } = movePathConfig()
 
   /**
    * 移动点位到新的坐标位置

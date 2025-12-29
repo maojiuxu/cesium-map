@@ -3,7 +3,6 @@
  * 
  * 提供在Cesium地图上创建、更新、移动和删除几何体实体的功能
  * 
- * @module GeometryManager
  * @author huweili
  * @email czxyhuweili@163.com
  * @version 1.0.0

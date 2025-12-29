@@ -1,3 +1,13 @@
+/**
+ * 轨迹设置模块
+ * 
+ * 提供在Cesium地图上设置无人机轨迹的功能
+ * 
+ * @author huweili
+ * @email czxyhuweili@163.com
+ * @version 1.0.0
+ * @date 2025-12-29
+ */
 import * as Cesium from 'cesium'
 import { useMapStore } from '@/stores/modules/mapStore'
 

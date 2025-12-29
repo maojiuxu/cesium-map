@@ -1,3 +1,14 @@
+/**
+ * 轨迹控制模块
+ * 
+ * 提供在Cesium地图上移动无人机轨迹的功能
+ * 
+ * @module MovePath
+ * @author huweili
+ * @email czxyhuweili@163.com
+ * @version 1.0.0
+ * @date 2025-12-29
+ */
 import * as Cesium from 'cesium'
 import { useMapStore } from '@/stores/modules/mapStore'
 import { setPath } from '@/components/cesiumMap/ts/setPath'

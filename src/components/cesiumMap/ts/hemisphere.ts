@@ -4,7 +4,6 @@
  * 提供在Cesium地图上创建、更新、移动和删除半球体实体的功能
  * 支持自定义半球体的位置、半径、颜色等属性
  * 
- * @module HemisphereManager
  * @author huweili
  * @email czxyhuweili@163.com
  * @version 1.0.0

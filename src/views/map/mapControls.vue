@@ -92,7 +92,7 @@
       <!-- 围栏控制按钮组 -->
       <div class="button-group fence-controls">
         <div class="group-title" @click="toggleControls('fence')">
-          围墙控制
+          围栏控制
           <span class="toggle-icon">{{ isFenceControlsOpen ? '▼' : '▶' }}</span>
         </div>
         <div v-if="isFenceControlsOpen" class="controls-content">

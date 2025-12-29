@@ -207,6 +207,7 @@ export function fenceConfig() {
     const height = options.maxHeight;
     const segments = Math.max(8, Math.min(options.segments || 64, 256)); // 限制分段数在8-256之间
     const opacity = options.opacity !== undefined ? options.opacity : 1.0;
+    const speed = options.speed || 1.0;
     const asynchronous = options.asynchronous || false; // 是否异步创建，默认false
     
     // 确保墙体贴地显示
@@ -226,6 +227,89 @@ export function fenceConfig() {
     }
 
     try {
+      // 创建火焰燃烧材质
+      const material = new Cesium.Material({
+        fabric: {
+          uniforms: {
+            u_color: Cesium.Color.fromCssColorString(options.color).withAlpha(opacity),
+            u_speed: speed,
+            u_maxHeight: height,
+            u_time: 0.0
+          },
+          source: `
+            uniform vec4 u_color;
+            uniform float u_speed;
+            uniform float u_maxHeight;
+            uniform float u_time;
+            
+            // 简单的噪声函数，用于模拟火焰的随机性
+            float noise(vec2 st) {
+              return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+            }
+            
+            // 分形噪声，用于更自然的火焰效果
+            float fbm(vec2 st) {
+              float value = 0.0;
+              float amplitude = 0.5;
+              float frequency = 1.0;
+              
+              for(int i = 0; i < 5; i++) {
+                value += amplitude * noise(st * frequency);
+                frequency *= 2.0;
+                amplitude *= 0.5;
+              }
+              
+              return value;
+            }
+            
+            czm_material czm_getMaterial(czm_materialInput materialInput)
+            {
+              czm_material material = czm_getDefaultMaterial(materialInput);
+              vec2 st = materialInput.st;
+              
+              // 使用czm_frameNumber驱动动画
+              float time = czm_frameNumber * 0.005 * u_speed;
+              
+              // 计算火焰上升的高度
+              float flameHeight = fract(time);
+              
+              // 火焰形状 - 底部宽，顶部窄
+              float flameShape = st.t * (1.0 - st.t * 0.5);
+              
+              // 创建火焰效果
+              float flame = 0.0;
+              if (st.t < flameHeight) {
+                // 添加噪声使火焰更自然
+                vec2 noiseSt = vec2(st.s * 5.0 + time * 0.5, st.t * 2.0 - time);
+                float noiseValue = fbm(noiseSt);
+                
+                // 火焰强度随高度变化
+                float intensity = 1.0 - (st.t / flameHeight);
+                intensity = pow(intensity, 2.0);
+                
+                // 火焰边缘模糊
+                float edge = smoothstep(0.8, 1.0, noiseValue);
+                flame = intensity * (1.0 - edge);
+              }
+              
+              // 火焰颜色变化 - 底部红色，顶部黄色
+              vec3 flameColor = mix(vec3(1.0, 0.2, 0.0), vec3(1.0, 1.0, 0.3), st.t);
+              
+              // 混合基础颜色和火焰颜色
+              vec3 finalColor = mix(u_color.rgb, flameColor, flame * 0.7);
+              
+              // 添加发光效果
+              material.emission = finalColor * flame * 2.0;
+              material.diffuse = finalColor;
+              material.alpha = flame * u_color.a;
+              
+              return material;
+            }
+          `
+        },
+        translucent: true
+      });
+      
       // 创建Primitive
       const primitive = new Cesium.Primitive({
         // 使用WallGeometry创建圆形墙（只显示侧面）
@@ -237,16 +321,9 @@ export function fenceConfig() {
           })
         }),
         appearance: new Cesium.MaterialAppearance({
-          material: new Cesium.Material({
-            fabric: {
-              type: 'Color',
-              uniforms: {
-                color: Cesium.Color.fromCssColorString(options.color).withAlpha(opacity)
-              }
-            },
-            translucent: true,
-          }),
-          translucent: true
+          material: material,
+          translucent: true,
+          closed: false
         }),
         asynchronous: asynchronous
       });

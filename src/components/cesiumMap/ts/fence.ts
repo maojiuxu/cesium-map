@@ -519,7 +519,6 @@ export function fenceConfig() {
     segments?: number;
     minRadius?: number;
   }) => {
-    const mapStore = useMapStore()
     const map = mapStore.getMap()
     
     if (!map) {
@@ -727,7 +726,6 @@ export function fenceConfig() {
     speed?: number;
     minRadius?: number;
   }) => {
-    const mapStore = useMapStore()
     const map = mapStore.getMap()
     
     if (!map) {
@@ -836,21 +834,11 @@ export function fenceConfig() {
           }
           
           try {
-            // 如果是初始极小状态，创建一个简单的矩形几何
-            if (currentRadius < 1) {
-              return new Cesium.RectangleGeometry({
-                rectangle: Cesium.Rectangle.fromCartesianArray(diffusePositions),
-                height: 0,
-                extrudedHeight: currentHeight,
-                vertexFormat: Cesium.VertexFormat.POSITION_ONLY
-              })
-            }
-            
-            // 正常扩散状态下使用PolygonGeometry
-            return new Cesium.PolygonGeometry({
-              polygonHierarchy: new Cesium.PolygonHierarchy(diffusePositions),
-              extrudedHeight: currentHeight,
-              height: 0,
+            // 使用WallGeometry创建空心多边形边框
+            return new Cesium.WallGeometry({
+              positions: diffusePositions,
+              maximumHeights: new Array(diffusePositions.length).fill(currentHeight),
+              minimumHeights: new Array(diffusePositions.length).fill(0),
               vertexFormat: Cesium.VertexFormat.POSITION_AND_ST
             })
           } catch (error) {

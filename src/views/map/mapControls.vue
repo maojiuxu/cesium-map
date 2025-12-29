@@ -85,8 +85,6 @@
           <button @click="toCreateMultiDiffusion" class="control-btn">创建多圈涟漪</button>
           <button @click="toCreateScanning" class="control-btn">创建扫描圈</button>
           <button @click="toCreateScanning1" class="control-btn">创建扫描圈img</button>
-          <button @click="toCreatePolygonDiffusion" class="control-btn">创建多边形墙</button>
-          <button @click="toCreateCircleDiffusion" class="control-btn">创建圆形墙</button>
           <button @click="toRemoveSingleDiffusion" class="control-btn">移除涟漪效果</button>
         </div>
       </div>
@@ -98,6 +96,8 @@
           <span class="toggle-icon">{{ isFenceControlsOpen ? '▼' : '▶' }}</span>
         </div>
         <div v-if="isFenceControlsOpen" class="controls-content">
+          <button @click="toCreatePolygonFence" class="control-btn">创建多边形墙</button>
+          <button @click="toCreateCircleFence" class="control-btn">创建圆形墙</button>
           <button @click="toCreateFenceFlowEffect" class="control-btn">创建火焰围栏</button>
         </div>
       </div>
@@ -405,8 +405,8 @@ const toCreateScanning1 = () => {
 }
 
 // 创建多边形扩散涟漪效果
-const toCreatePolygonDiffusion = () => {
-  polygonDiffusion({
+const toCreatePolygonFence = () => {
+  polygonFence({
     id: 'polygon_diffusion_001',
     maxHeight: 800, // 最大扩散高度（米）
     color: '#E81224', // 涟漪颜色
@@ -422,8 +422,9 @@ const toCreatePolygonDiffusion = () => {
   })
 }
 
-const toCreateCircleDiffusion = () => {
-  circleDiffusion({
+// 创建圆形围栏效果
+const toCreateCircleFence = () => {
+  circleFence({
     id: 'circle_diffusion_001',
     center: [117.229619, 31.726288, 500], // 使用地图初始化时的中心点坐标，并增加一点高度
     maxRadius: 1500, // 最大扩散半径（米）
@@ -459,7 +460,7 @@ const toCreateFenceFlowEffect = () => {
     ],
     color: '#E81224', // 火焰颜色
     speed: 1.0, // 火焰上升速度
-    maxHeight: 300, // 火焰最大高度（米）
+    maxHeight: 900, // 火焰最大高度（米）
   }) 
 }
 
@@ -540,14 +541,13 @@ const {
   multiDiffusion,
   removeDiffusion,
   circleScanImage,
-  polygonDiffusion,
-  circleDiffusion,
   scanning
 } = diffusionConfig()
 
 const {
-  fenceFlowEffect,
-  conicalEffect
+  polygonFence,
+  circleFence,
+  fenceFlowEffect
 } = fenceConfig()
 
 const {

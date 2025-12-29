@@ -64,24 +64,16 @@ export function geometryConfig() {
     
     // 创建HeadingPitchRoll对象，控制圆锥的朝向
     const hpr = new Cesium.HeadingPitchRoll(heading, pitch, roll);
-    
-    // 计算圆锥体的中心点位置
-    const halfLength = options.length / 2;
-    
-    // 创建一个沿圆锥体轴线方向的向量
-    const direction = Cesium.Cartesian3.UNIT_Z;
-    
-    // 创建变换矩阵
-    const transform = Cesium.Transforms.headingPitchRollToFixedFrame(
-      vertexPosition,
-      hpr
-    );
-    
+
     // 将本地轴线向量转换为世界坐标系
     const worldDirection = Cesium.Matrix4.multiplyByPointAsVector(
-      transform,
-      direction,
-      new Cesium.Cartesian3()
+      // 创建变换矩阵
+      Cesium.Transforms.headingPitchRollToFixedFrame(
+        vertexPosition,
+        hpr
+      ),
+      Cesium.Cartesian3.UNIT_Z, // 创建一个沿圆锥体轴线方向的向量
+      new Cesium.Cartesian3() 
     );
     
     // 归一化方向向量
@@ -89,12 +81,10 @@ export function geometryConfig() {
     
     // 计算圆锥体的中心点
     // 从顶点位置沿着圆锥体轴线反方向移动halfLength
+    const halfLength = options.length / 2;
     const cylinderCenter = Cesium.Cartesian3.clone(vertexPosition);
     const offset = Cesium.Cartesian3.multiplyByScalar(worldDirection, halfLength, new Cesium.Cartesian3());
     Cesium.Cartesian3.subtract(cylinderCenter, offset, cylinderCenter);
-
-    // 创建颜色对象
-    const color = Cesium.Color.fromCssColorString(options.color || '#00FFFF');
 
     // 创建圆锥体Primitive
     // 1. 使用headingPitchRollToFixedFrame创建正确的模型矩阵
@@ -121,7 +111,7 @@ export function geometryConfig() {
         material: new Cesium.Material({
           fabric: {
             uniforms: {
-              color: color.withAlpha(0.7),
+              color: Cesium.Color.fromCssColorString(options.color || '#00FFFF').withAlpha(0.7),
               duration: 6000,
               repeat: 30,
               offset: 0,

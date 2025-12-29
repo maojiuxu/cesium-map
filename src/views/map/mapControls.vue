@@ -98,6 +98,7 @@
         <div v-if="isFenceControlsOpen" class="controls-content">
           <button @click="toCreatePolygonFence" class="control-btn">创建多边形墙</button>
           <button @click="toCreateCircleFence" class="control-btn">创建圆形墙</button>
+          <button @click="toCreateDiffusionFence" class="control-btn">创建扩散墙</button>
           <button @click="toCreateFenceFlowEffect" class="control-btn">创建火焰围栏</button>
         </div>
       </div>
@@ -126,6 +127,7 @@ import { setReplay } from '@/components/cesiumMap/ts/replayPath'
 import { diffusionConfig } from '@/components/cesiumMap/ts/diffusion'
 import { fenceConfig } from '@/components/cesiumMap/ts/fence'
 import { geometryConfig } from '@/components/cesiumMap/ts/geometry'
+import WallPolygonDiffuse from '@/components/cesiumMap/ts/WallPolygonDiffuse.js'
 
 // 获取store实例，保持响应性
 const mapStore = useMapStore()
@@ -440,6 +442,27 @@ const toCreateCircleFence = () => {
 const toRemoveSingleDiffusion = () => {
   // 移除指定ID的涟漪效果
   removeDiffusion('single_diffusion_001')
+}
+
+// 创建扩散围栏效果
+const toCreateDiffusionFence = () => {
+  const viewer = mapStore.getMap()
+  if (!viewer) {
+    console.error('地图实例不存在，无法创建扩散墙')
+    return
+  }
+  
+  new WallPolygonDiffuse({
+    viewer: viewer,
+    id: 'diffusion_fence_001',
+    center: [117.229619, 31.726288, 500], // 使用地图初始化时的中心点坐标，并增加一点高度
+    radius: 1500, // 最大扩散半径（米）
+    height: 800, // 最大扩散高度（米）
+    color: '#E81224', // 涟漪颜色
+    opacity: 0.8, // 增加透明度确保可见
+    speed: 5, // 倍速（原始速率的倍数）
+    segments: 128 // 增加分段数，使圆形更平滑
+  })
 }
 
 // 创建火焰围栏效果

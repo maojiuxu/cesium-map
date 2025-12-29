@@ -115,8 +115,8 @@ export function geometryConfig() {
           length: options.length,
           topRadius: 0,  // 顶部半径为0，形成圆锥顶点
           bottomRadius: options.bottomRadius
-        }),
-        modelMatrix: modelMatrix
+        })
+        // 不再单独给modelMatrix，用Primitive级统一矩阵
       }),
       appearance: new Cesium.MaterialAppearance({
         material: new Cesium.Material({
@@ -157,10 +157,11 @@ export function geometryConfig() {
         }),
         translucent: true
       }),
+      modelMatrix,  // 关键：挂在primitive上
       asynchronous: false
     });
 
-    // 存储原始配置选项，用于后续更新
+    // 只需要挂原始参数，用于后面计算
     (primitive as any)._originalOptions = { ...options };
 
     // 将primitive添加到mapStore中进行管理
@@ -222,65 +223,36 @@ export function geometryConfig() {
     }
 
     try {
-      // 获取原始配置选项
-      const originalOptions = (primitive as any)._originalOptions;
-      if (!originalOptions) {
-        console.error(`id: ${id} 圆锥体原始配置选项不存在`)
-        return false
-      }
 
-      // 提取经纬度和高度
-      const [lng, lat, height = 0] = originalOptions.positions;
-      
-      // 计算顶点位置
-      const vertexPosition = Cesium.Cartesian3.fromDegrees(lng, lat, height);
-      
-      // 将度数转换为弧度
-      const headingRad = Cesium.Math.toRadians(heading);
-      const pitchRad = Cesium.Math.toRadians(pitch);
-      const roll = 0;
-      
-      // 创建HeadingPitchRoll对象
-      const hpr = new Cesium.HeadingPitchRoll(headingRad, pitchRad, roll);
-      
-      // 创建新的模型矩阵
-      const modelMatrix = Cesium.Transforms.headingPitchRollToFixedFrame(vertexPosition, hpr);
-      
-      // 创建平移矩阵
-      const translationMatrix = Cesium.Matrix4.fromTranslation(new Cesium.Cartesian3(0, 0, -originalOptions.length / 2));
-      
-      // 将平移矩阵与模型矩阵相乘
-      Cesium.Matrix4.multiply(modelMatrix, translationMatrix, modelMatrix);
-      
-      // 对于Cesium Primitive，我们需要重新创建整个Primitive来更新姿态
-      // 因为直接修改modelMatrix可能不会触发重新渲染
-      
-      // 从场景中移除旧的primitive
-      map.scene.primitives.remove(primitive);
-      
-      // 从缓存中清除旧的primitive
-      mapStore.removeGraphicMap(id);
-      
-      // 使用新的方向参数重新创建圆锥体
-      const newOptions = {
-        ...originalOptions,
-        heading: heading,
-        pitch: pitch
-      };
-      
-      // 重新创建圆锥体
-      const newPrimitive = conicalWave(newOptions);
-      
-      if (newPrimitive) {
-        // 更新原始配置中的方向信息
-        originalOptions.heading = heading;
-        originalOptions.pitch = pitch;
-        console.log(`id: ${id} 圆锥体姿态更新成功`);
-        return true;
-      } else {
-        console.error(`重新创建圆锥体失败`);
-        return false;
-      }
+      const primitive = mapStore.getGraphicMap(id);
+if (!primitive) return false;
+
+const opts = (primitive as any)._originalOptions;
+const [lng, lat, height = 0] = opts.positions;
+const vertexPos = Cesium.Cartesian3.fromDegrees(lng, lat, height);
+
+const hpr = new Cesium.HeadingPitchRoll(
+  Cesium.Math.toRadians(heading),
+  Cesium.Math.toRadians(pitch),
+  0
+);
+
+// 计算新矩阵
+const M = Cesium.Transforms.headingPitchRollToFixedFrame(vertexPos, hpr);
+const T = Cesium.Matrix4.fromTranslation(
+  new Cesium.Cartesian3(0, 0, -opts.length / 2)
+);
+Cesium.Matrix4.multiply(M, T, M);
+
+// ✅ 直接赋值——立即生效，无需重建
+primitive.modelMatrix = M;
+
+// 缓存
+opts.heading = heading;
+opts.pitch = pitch;
+mapStore.setGraphicMap(id, primitive);
+console.log(`id: ${id} 圆锥体姿态已更新`);
+return true;
     } catch (error) {
       console.error(`更新圆锥体姿态失败:`, error);
       return false;
